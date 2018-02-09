@@ -379,14 +379,19 @@ string File::tempFileName()
         return std::string();
     }
 #else
-    char *fileName = tempnam(0, 0);
-    if ( !fileName ) {
-        LOG_ERROR("Failed to create a temporary file name.");
-        return std::string();
-    }
+     /* 新建文件名和文件，文件名中的XXXXXX将被随机字符串代替，以保证文件名在系统中的唯一性 */
+     char fileName[] = "/tmp/temp_file_XXXXXX";
+     int fd = mkstemp(fileName);
+     if (0 > fd) {
+         LOG_ERROR("Failed to create a temporary file name.");
+         return std::string();
+     }
+
+     /* 文件立刻被unlink，这样只要文件描述符一关闭文件就会被自动删除 */
+     unlink(fileName);
+     close(fd);
 #endif
     string path = decodeName(fileName);
-    free(fileName);
     tempFiles.push(path);
     return path;
 }
