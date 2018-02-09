@@ -1,10 +1,11 @@
-#include "log.h"
-#include "File.h"
-
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
+
+#include <sys/stat.h>
+
+#include "log.h"
 
 using namespace MyUtilityLib;
 
@@ -14,8 +15,13 @@ static size_t g_logMaxSize = 10 * 1024 * 1024;
 
 static int ReloadLogStream()
 {
+    struct stat fileInfo;
+    if(stat(g_logFile.c_str(), &fileInfo) != 0) {
+        return -1;
+    }
+
     // 日志文件最大g_logMaxSize
-    if(File::fileSize(g_logFile) >= g_logMaxSize) {
+    if((size_t)fileInfo.st_size >= g_logMaxSize) {
         g_logStream.clear();
         g_logStream.close();
 
@@ -77,7 +83,11 @@ void Log::out(LogType type, const char *date, const char *time, const char *file
         case InfoType: *o << "<INFO>"; break;
         case DebugType: *o << "<DEBUG>"; break;
     }
-    *o << "[" << File::fileName(file) << ":" << line << "]<" << func << "> - ";
+
+    std::string strFile(file);
+    size_t pos = strFile.find_last_of("/\\");
+    std::string fileName = (pos == std::string::npos) ? strFile : strFile.substr(pos + 1);
+    *o << "[" << fileName << ":" << line << "]<" << func << "> - ";
 
     va_list args;
     va_start(args, format);
@@ -94,9 +104,13 @@ void Log::dbgPrintfMemImpl(const char *msg, const void *ptr, size_t size, const 
     std::ostream *o = &g_logStream;
 
     const unsigned char *data = (const unsigned char*)ptr;
-    *o << date << " " << time << "<DEBUG>[" << File::fileName(file) << ":" << line << "]<" << func << "> - " << msg << " { ";
+
+    std::string strFile(file);
+    size_t pos = strFile.find_last_of("/\\");
+    std::string fileName = (pos == std::string::npos) ? strFile : strFile.substr(pos + 1);
+    *o << date << " " << time << "<DEBUG>[" << fileName << ":" << line << "]<" << func << "> - " << msg << " { ";
     *o << std::hex << std::uppercase << std::setfill('0');
-    for(size_t i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i) {
         *o << std::setw(2) << static_cast<int>(data[i]) << ' ';
     }
     *o << std::dec << std::nouppercase << std::setfill(' ') <<"}:" << size << std::endl;
