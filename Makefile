@@ -1,22 +1,23 @@
-CXX = g++ 
-CXXFLAGS = -g -Wall -std=c++11 -pthread -O3 -flto -DNDEBUG
+CXX = g++ -std=c++11
+CXXFLAGS = -g -Wall -pthread -O3 -flto -DNDEBUG
 
-SOURCES = $(wildcard ./*.cpp ./minizip/*.cpp)
+TARGET = myutility_test
+
+SOURCES = $(wildcard ./*.cpp) $(wildcard ./minizip/*.cpp)
 HEADERS = 
-INCLUDE = -I/usr/include/libxml2/
 
+INCLUDE = -I/usr/include/libxml2/
 LDFLAGS = -L
 LIBS = -lz -lxml2
 
-LIBNAME = libmyutility.so
-LIBOBJ = ./minizip/ioapi.o ./minizip/iowin32.o ./minizip/unzip.o ./minizip/zip.o File.o log.o xmlConf.o ZipSerialize.o
+OBJS = $(SOURCES:.cpp=.o)
 
-$(LIBNAME): $(LIBOBJ)
-	$(CXX) $(CXXFLAGS) -fPIC -shared $(INCLUDE) $(LDFLAGS) $(LIBS) -o $@ $^
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) $(INCLUDE) $(LDFLAGS) $(LIBS) -o $@ $^
 	
-$(LIBOBJ): %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -fPIC $(INCLUDE) $(LDFLAGS) $(LIBS) -c -o $@ $^
-
+$(OBJS): %.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDE) $(LDFLAGS) $(LIBS) -c -o $@ $^
+	
 .PHONY: clean
 clean:
-	rm -f $(LIBOBJ) $(LIBOBJ_C) $(LIBNAME)
+	rm -f $(TARGET) $(OBJS) 

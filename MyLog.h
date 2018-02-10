@@ -4,11 +4,11 @@
 // Usage:
 // 定义日志路径：static MyLog MLog("/tmp/MyLog.log");
 // LOG_TRACE(); LOG_INFO(); 打印日志
-// 编译release、链接时优化选项增加速度：-W -pthread -O3 -flto -DNDEBUG
+// 编译release、链接时优化选项增加速度：-Wall -pthread -O3 -flto -DNDEBUG
 
 // 0：rotating日志
 // 1：rotating日志 + 增加控制台日志
-#define _MYLOG_SINK_    0
+#define _MYLOG_SINK_    1
 
 // 0: trace级别
 // 1：ERROR级别
