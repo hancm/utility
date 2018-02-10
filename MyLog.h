@@ -2,7 +2,7 @@
 #define __MYLOG_H__
 
 // Usage:
-// 定义日志路径：MyLog MLog("hancm.txt");
+// 定义日志路径：static MyLog MLog("/tmp/MyLog.log");
 // LOG_TRACE(); LOG_INFO(); 打印日志
 // 编译release、链接时优化选项增加速度：-W -pthread -O3 -flto -DNDEBUG
 
