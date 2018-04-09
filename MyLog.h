@@ -1,6 +1,19 @@
 ﻿#ifndef __MYLOG_H__
 #define __MYLOG_H__
 
+//
+// cuda 错误检测
+//
+#define cudaErrorLog(err) ( LOG_ERROR("Cuda runtime error: {}:{}.", err, cudaGetErrorString(err)) )
+
+#define checkCudaErrors( a ) do { \
+    cudaError_t err = (a); \
+    if (cudaSuccess != err) { \
+        LOG_ERROR("Cuda runtime error: {}:{}.", err, cudaGetErrorString(err)); \
+        exit(EXIT_FAILURE); \
+    } \
+} while(0);
+
 // Usage:
 // 定义日志路径：static MyLog MLog("/tmp/MyLog.log");
 // LOG_TRACE(); LOG_INFO(); 打印日志
@@ -8,7 +21,7 @@
 
 // 0：rotating日志
 // 1：rotating日志 + 增加控制台日志
-#define _MYLOG_SINK_    1
+#define _MYLOG_SINK_    0
 
 // 0: trace级别
 // 1：ERROR级别
@@ -160,7 +173,7 @@ private:
             logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e][%P:%t][%l]%v");
 
             //设置当出发err或更严重的错误时立刻刷新日志到disk
-            logger->flush_on(spdlog::level::err);
+            logger->flush_on(spdlog::level::debug);
         } catch (...) {
             destroy();
         }
