@@ -1,19 +1,6 @@
 ﻿#ifndef __MYLOG_H__
 #define __MYLOG_H__
 
-//
-// cuda 错误检测
-//
-#define cudaErrorLog(err) ( LOG_ERROR("Cuda runtime error: {}:{}.", err, cudaGetErrorString(err)) )
-
-#define checkCudaErrors( a ) do { \
-    cudaError_t err = (a); \
-    if (cudaSuccess != err) { \
-        LOG_ERROR("Cuda runtime error: {}:{}.", err, cudaGetErrorString(err)); \
-        exit(EXIT_FAILURE); \
-    } \
-} while(0);
-
 // Usage:
 // 定义日志路径：static MyLog MLog("/tmp/MyLog.log");
 // LOG_TRACE(); LOG_INFO(); 打印日志
