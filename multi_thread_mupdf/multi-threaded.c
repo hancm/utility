@@ -213,11 +213,10 @@ int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void 
 {
     for (int i = 0; i < threadCnt; ++i)
     {
-        pthread_t renderThreadID;
         if (pthread_create(&pthreadList[i], NULL, fun, param) != 0) {
             fail("pthread_create()");
         }
-//        pthread_detach(renderThreadID);
+        pthread_detach(pthreadList[i]);
     }
 
     return 0;
@@ -226,7 +225,7 @@ int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void 
 int main(int argc, char **argv)
 {
     pthread_t pthreadList[1];
-    make_thread(pthreadList, 1, PixMapMain);
+    make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain);
 
     const char *filename = argc >= 2 ? argv[1] : "";
 	pthread_t *thread = NULL;
@@ -340,7 +339,7 @@ int main(int argc, char **argv)
         if (pthread_create(&thread[i], NULL, renderer, data) != 0) {
 			fail("pthread_create()");
         }
-//        pthread_detach(thread[i]);
+        pthread_detach(thread[i]);
 	}
 
 //  // Now each thread is rendering pages, so wait for each thread
