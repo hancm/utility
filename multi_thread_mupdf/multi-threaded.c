@@ -35,6 +35,16 @@
 #include <vector>
 #include <unistd.h>
 
+// 像素信息
+static std::list<void*> g_pixMapList;
+static pthread_mutex_t g_pixMapListMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  g_pixMapListCond  = PTHREAD_COND_INITIALIZER;
+
+// 是否完成
+static int g_finishPagesNum = 0;
+static bool g_isFinishStatus = false;
+static pthread_mutex_t g_finishMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  g_finishCond  = PTHREAD_COND_INITIALIZER;
 // A convenience function for dying abruptly on pthread errors.
 
 void
@@ -55,6 +65,8 @@ struct data {
 
 	// Page number sent from main to rendering thread for printing
 	int pagenumber;
+
+    int total_pagecnt;
 
 	// The display list as obtained by the main thread and sent
 	// from main to rendering thread. This contains the drawing
@@ -111,6 +123,16 @@ renderer(void *data)
 
 	fprintf(stderr, "thread at page %d done!\n", pagenumber);
 
+    pthread_mutex_lock(&g_pixMapListMutex);
+    g_pixMapList.push_back(data);
+
+    printf("sizeof g_pixMapList: %d.\n", g_pixMapList.size());
+     //广播条件变量，唤醒正在等待的线程
+    pthread_cond_signal(&g_pixMapListCond);
+    printf("renderer thread singal cond\n");
+    pthread_mutex_unlock(&g_pixMapListMutex);
+    printf("renderer thread unlocked\n");
+
 	return data;
 }
 
@@ -135,8 +157,77 @@ void unlock_mutex(void *user, int lock)
 		fail("pthread_mutex_unlock()");
 }
 
+void *PixMapMain(void *param)
+{
+    while (!g_isFinishStatus)
+    {
+        pthread_mutex_lock(&g_pixMapListMutex);
+        while (g_pixMapList.empty()) {
+            printf("###wait g_pixMapList.\n");
+            pthread_cond_wait(&g_pixMapListCond, &g_pixMapListMutex);
+        }
+
+        struct data* data = (struct data*)g_pixMapList.front();
+        g_pixMapList.pop_front();
+        pthread_mutex_unlock(&g_pixMapListMutex);
+
+        fz_context *ctx = data->ctx;
+
+        fprintf(stderr, "####66 Page: %d\n", data->pagenumber);
+
+        char filename[42];
+
+        sprintf(filename, "out%04d.png", data->pagenumber);
+        fprintf(stderr, "\tSaving %s...\n", filename);
+
+        // Write the rendered image to a PNG file
+
+        fz_save_pixmap_as_png(ctx, data->pix, filename);
+
+        // Free the thread's pixmap and display list since
+        // they were allocated by the main thread above.
+
+        fz_drop_pixmap(ctx, data->pix);
+        fz_drop_display_list(ctx, data->list);
+
+        // Free the data structured passed back and forth
+        // between the main thread and rendering thread.
+
+
+        pthread_mutex_lock(&g_finishMutex);
+        ++g_finishPagesNum;
+        printf("finish page num: %d.\n", g_finishPagesNum);
+        if (g_finishPagesNum == data->total_pagecnt)
+        {
+            printf("Finish cond signal.\n");
+            g_isFinishStatus = true;
+            pthread_cond_signal(&g_finishCond);
+        }
+        pthread_mutex_unlock(&g_finishMutex);
+
+        free(data);
+    }
+}
+
+int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void *param = NULL)
+{
+    for (int i = 0; i < threadCnt; ++i)
+    {
+        pthread_t renderThreadID;
+        if (pthread_create(&pthreadList[i], NULL, fun, param) != 0) {
+            fail("pthread_create()");
+        }
+//        pthread_detach(renderThreadID);
+    }
+
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
+    pthread_t pthreadList[1];
+    make_thread(pthreadList, 1, PixMapMain);
+
     const char *filename = argc >= 2 ? argv[1] : "";
 	pthread_t *thread = NULL;
 	fz_locks_context locks;
@@ -242,45 +333,59 @@ int main(int argc, char **argv)
 		data->list = list;
 		data->bbox = bbox;
 		data->pix = pix;
+        data->total_pagecnt = threads;
 
 		// Create the thread and pass it the data structure.
 
-		if (pthread_create(&thread[i], NULL, renderer, data) != 0)
+        if (pthread_create(&thread[i], NULL, renderer, data) != 0) {
 			fail("pthread_create()");
+        }
+//        pthread_detach(thread[i]);
 	}
 
-	// Now each thread is rendering pages, so wait for each thread
-	// to complete its rendering.
+//  // Now each thread is rendering pages, so wait for each thread
+//  // to complete its rendering.
+//
+//  fprintf(stderr, "joining %d threads...\n", threads);
+//  for (i = threads - 1; i >= 0; i--)
+//  {
+//      char filename[42];
+//      struct data *data;
+//
+//      if (pthread_join(thread[i], (void **) &data) != 0)
+//          fail("pthread_join");
+//
+//      sprintf(filename, "out%04d.png", i);
+//      fprintf(stderr, "\tSaving %s...\n", filename);
+//
+//      // Write the rendered image to a PNG file
+//
+//      fz_save_pixmap_as_png(ctx, data->pix, filename);
+//
+//      // Free the thread's pixmap and display list since
+//      // they were allocated by the main thread above.
+//
+//      fz_drop_pixmap(ctx, data->pix);
+//      fz_drop_display_list(ctx, data->list);
+//
+//      // Free the data structured passed back and forth
+//      // between the main thread and rendering thread.
+//
+//      free(data);
+//  }
 
-	fprintf(stderr, "joining %d threads...\n", threads);
-	for (i = threads - 1; i >= 0; i--)
-	{
-		char filename[42];
-		struct data *data;
+    pthread_mutex_lock(&g_finishMutex);
+    while (!g_isFinishStatus) {
+        printf("@@@@Wait finish, page num: %d.\n", g_finishPagesNum);
+        pthread_cond_wait(&g_finishCond, &g_finishMutex);
+    }
+    pthread_mutex_unlock(&g_finishMutex);
 
-		if (pthread_join(thread[i], (void **) &data) != 0)
-			fail("pthread_join");
-
-		sprintf(filename, "out%04d.png", i);
-		fprintf(stderr, "\tSaving %s...\n", filename);
-
-		// Write the rendered image to a PNG file
-
-		fz_save_pixmap_as_png(ctx, data->pix, filename);
-
-		// Free the thread's pixmap and display list since
-		// they were allocated by the main thread above.
-
-		fz_drop_pixmap(ctx, data->pix);
-		fz_drop_display_list(ctx, data->list);
-
-		// Free the data structured passed back and forth
-		// between the main thread and rendering thread.
-
-		free(data);
-	}
-
-	fprintf(stderr, "finally!\n");
+//    while (true)
+//    {
+//        sleep(1);
+//    }
+    fprintf(stderr, "finally!\n");
 	fflush(NULL);
 
 	free(thread);
