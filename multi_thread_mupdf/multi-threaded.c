@@ -172,6 +172,8 @@ void *PixMapMain(void *param)
         pthread_mutex_unlock(&g_pixMapListMutex);
 
         fz_context *ctx = data->ctx;
+        ctx = fz_clone_context(ctx);
+        int page_cnt = data->total_pagecnt;
 
         fprintf(stderr, "####66 Page: %d\n", data->pagenumber);
 
@@ -193,19 +195,19 @@ void *PixMapMain(void *param)
         // Free the data structured passed back and forth
         // between the main thread and rendering thread.
 
+        free(data);
+        data = NULL;
 
         pthread_mutex_lock(&g_finishMutex);
         ++g_finishPagesNum;
         printf("finish page num: %d.\n", g_finishPagesNum);
-        if (g_finishPagesNum == data->total_pagecnt)
+        if (g_finishPagesNum == page_cnt)
         {
             printf("Finish cond signal.\n");
             g_isFinishStatus = true;
             pthread_cond_signal(&g_finishCond);
         }
         pthread_mutex_unlock(&g_finishMutex);
-
-        free(data);
     }
 }
 
@@ -222,9 +224,12 @@ int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void 
     return 0;
 }
 
+//pthread_t pthreadList[1];
+//int pixMapThread = make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain);
+
 int main(int argc, char **argv)
 {
-    pthread_t pthreadList[1];
+    pthread_t pthreadList[8];
     make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain);
 
     const char *filename = argc >= 2 ? argv[1] : "";
@@ -339,8 +344,18 @@ int main(int argc, char **argv)
         if (pthread_create(&thread[i], NULL, renderer, data) != 0) {
 			fail("pthread_create()");
         }
-        pthread_detach(thread[i]);
+//        pthread_detach(thread[i]);
 	}
+
+    for (int i = threads - 1; i >= 0; --i)
+    {
+        printf("pthread_join.\n");
+
+        struct data *data;
+        if (pthread_join(thread[i], (void **) &data) != 0){
+          fail("pthread_join");
+        }
+    }
 
 //  // Now each thread is rendering pages, so wait for each thread
 //  // to complete its rendering.
@@ -379,6 +394,14 @@ int main(int argc, char **argv)
         pthread_cond_wait(&g_finishCond, &g_finishMutex);
     }
     pthread_mutex_unlock(&g_finishMutex);
+
+//    sleep(1);
+
+//    while (g_finishPagesNum != threads)
+//    {
+//        printf("Sleep.\n");
+//        sleep(1);
+//    }
 
 //    while (true)
 //    {
