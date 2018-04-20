@@ -35,6 +35,14 @@
 #include <vector>
 #include <unistd.h>
 
+static int alphabits = 8;
+static int layout_use_doc_css = 1;
+static float layout_w = 450;
+static float layout_h = 600;
+static float layout_em = 12;
+static const int resolution = 72;
+
+
 // 页面信息
 static std::list<void*> g_pagesInfoList;
 static pthread_mutex_t g_pagesInfoListMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -148,7 +156,6 @@ renderer(void *data)
         g_pixMapList.push_back(data);
 
         printf("sizeof g_pixMapList: %d.\n", g_pixMapList.size());
-         //广播条件变量，唤醒正在等待的线程
         pthread_cond_signal(&g_pixMapListCond);
         printf("renderer thread singal cond\n");
         pthread_mutex_unlock(&g_pixMapListMutex);
@@ -200,11 +207,12 @@ void *PixMapMain(void *param)
 
         char filename[42];
 
-        sprintf(filename, "out%04d.png", data->pagenumber);
+        sprintf(filename, "multi-out%04d.png", data->pagenumber);
         fprintf(stderr, "\tSaving %s...\n", filename);
 
         // Write the rendered image to a PNG file
 
+//      fz_set_pixmap_resolution(ctx, data->pix, resolution, resolution);
         fz_save_pixmap_as_png(ctx, data->pix, filename);
 
         // Free the thread's pixmap and display list since
@@ -285,7 +293,9 @@ void *LoadPage(void *param)
         // Create a white pixmap using the correct dimensions.
 
         pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_round_rect(&rbox, &bbox), 0, 0);
+//      fz_clear_pixmap(ctx, pix);
         fz_clear_pixmap_with_value(ctx, pix, 0xff);
+        fz_set_pixmap_resolution(ctx, pix, resolution, resolution);
 
         // Populate the data structure to be sent to the
         // rendering thread for this page.
@@ -370,6 +380,10 @@ int main(int argc, char **argv)
 
 	fz_register_document_handlers(ctx);
 
+    fz_set_aa_level(ctx, alphabits);
+
+    fz_set_use_document_css(ctx, layout_use_doc_css);
+
 	// Open the PDF, XPS or CBZ document. Note, this binds doc to ctx.
 	// You must only ever use doc with ctx - never a clone of it!
 
@@ -378,6 +392,7 @@ int main(int argc, char **argv)
 	// Retrieve the number of pages, which translates to the
 	// number of threads used for rendering pages.
 
+    fz_layout_document(ctx, doc, layout_w, layout_h, layout_em);
 	threads = fz_count_pages(ctx, doc);
     fprintf(stderr, "spawning %d threads, one per page...\n", threads);
 
