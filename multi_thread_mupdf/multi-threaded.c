@@ -94,7 +94,7 @@ struct data {
 
 	// The area of the page to render as obtained by the main
 	// thread and sent from main to rendering thread.
-	fz_rect bbox;
+        fz_rect bbox;
 
 	// This is the result, a pixmap containing the rendered page.
 	// It is passed first from main thread to the rendering
@@ -126,7 +126,7 @@ renderer(void *data)
         fz_context *ctx = ((struct data *) data)->ctx;
         fz_display_list *list = ((struct data *) data)->list;
         fz_rect bbox = ((struct data *) data)->bbox;
-        fz_pixmap *pix = ((struct data *) data)->pix;
+        fz_pixmap *&pix = ((struct data *) data)->pix;
         fz_device *dev;
 
         fprintf(stderr, "thread at page %d loading!\n", pagenumber);
@@ -136,6 +136,11 @@ renderer(void *data)
         // use in this thread.
 
         ctx = fz_clone_context(ctx);
+
+        fz_irect rbox;
+        pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_round_rect(&rbox, &bbox), 0, 0);
+        fz_clear_pixmap_with_value(ctx, pix, 0xff);
+        fz_set_pixmap_resolution(ctx, pix, resolution, resolution);
 
         // Next we run the display list through the draw device which
         // will render the request area of the page to the pixmap.
@@ -212,8 +217,14 @@ void *PixMapMain(void *param)
 
         // Write the rendered image to a PNG file
 
-//      fz_set_pixmap_resolution(ctx, data->pix, resolution, resolution);
+        fz_set_pixmap_resolution(ctx, data->pix, resolution, resolution);
         fz_save_pixmap_as_png(ctx, data->pix, filename);
+
+        fz_buffer *buffer = fz_new_buffer_from_pixmap_as_png(ctx, data->pix, NULL);
+        unsigned char *datap = NULL;
+        ssize_t png_size = fz_buffer_storage(ctx, buffer, &datap);
+        printf("###########png size: %d.\n", png_size);
+        fz_drop_buffer(ctx, buffer);
 
         // Free the thread's pixmap and display list since
         // they were allocated by the main thread above.
@@ -248,9 +259,10 @@ void *LoadPage(void *param)
     fz_document *doc = pdfData->doc;
     int begin_pages = pdfData->begin_pages;
     int end_pages = pdfData->end_pages;
+    ctx = fz_clone_context(ctx);
 
     printf("#################Total page num: %d.\n", threads);
-    for (int i = 0; i < threads; i++)
+    for (int i = begin_pages; i < end_pages; i++)
     {
         fz_page *page;
         fz_rect bbox;
@@ -292,10 +304,9 @@ void *LoadPage(void *param)
 
         // Create a white pixmap using the correct dimensions.
 
-        pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_round_rect(&rbox, &bbox), 0, 0);
-//      fz_clear_pixmap(ctx, pix);
-        fz_clear_pixmap_with_value(ctx, pix, 0xff);
-        fz_set_pixmap_resolution(ctx, pix, resolution, resolution);
+//      pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_round_rect(&rbox, &bbox), 0, 0);
+//      fz_clear_pixmap_with_value(ctx, pix, 0xff);
+//      fz_set_pixmap_resolution(ctx, pix, resolution, resolution);
 
         // Populate the data structure to be sent to the
         // rendering thread for this page.
@@ -306,7 +317,7 @@ void *LoadPage(void *param)
         data->ctx = ctx;
         data->list = list;
         data->bbox = bbox;
-        data->pix = pix;
+        data->pix = NULL;//pix;
         data->total_pagecnt = threads;
 
         pthread_mutex_lock(&g_pagesInfoListMutex);
@@ -337,10 +348,10 @@ int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void 
 
 int main(int argc, char **argv)
 {
-    pthread_t rendererThreadList[1];
+    pthread_t rendererThreadList[2];
     make_thread(rendererThreadList, sizeof(rendererThreadList) / sizeof(*rendererThreadList), renderer);
 
-    pthread_t pthreadList[3];
+    pthread_t pthreadList[6];
     make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain);
 
     const char *filename = argc >= 2 ? argv[1] : "";
@@ -396,8 +407,13 @@ int main(int argc, char **argv)
 	threads = fz_count_pages(ctx, doc);
     fprintf(stderr, "spawning %d threads, one per page...\n", threads);
 
+    int avg = threads;// / 2;
+    printf("###avg: %d.\n", avg);
+
     struct data *pdfData = (struct data*)malloc(sizeof (struct data));
     pdfData->total_pagecnt = threads;
+    pdfData->begin_pages = 0;
+    pdfData->end_pages = avg;
     pdfData->ctx = ctx;
     pdfData->doc = doc;
 
@@ -410,7 +426,7 @@ int main(int argc, char **argv)
 //  pdfData2->end_pages = threads;
 //  pdfData2->ctx = ctx;
 //  pdfData2->doc = doc;
-
+//
 //  pthread_t threadId2[1];
 //  make_thread(threadId2, sizeof(threadId2) / sizeof(*threadId2), LoadPage, pdfData2);
 

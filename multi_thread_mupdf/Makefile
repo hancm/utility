@@ -9,7 +9,7 @@ LDFLAGS :=
 DEFINES :=
 
 INCLUDE :=
-CFLAGS := -g -Wall -std=c++11  $(INCLUDE)
+CFLAGS := -O3 -pthread -flto -DNDEBUG -m64 -fPIC -Wall -std=c++11  $(INCLUDE)
 CXXFLAGS:= $(CFLAGS) -DHAVE_CONFIG_H
 
 #i think you should do anything here
