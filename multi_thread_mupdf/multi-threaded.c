@@ -44,20 +44,20 @@ static const int resolution = 72;
 
 
 // 页面信息
-static std::list<void*> g_pagesInfoList;
-static pthread_mutex_t g_pagesInfoListMutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t  g_pagesInfoListCond  = PTHREAD_COND_INITIALIZER;
-
-// 像素信息
-static std::list<void*> g_pixMapList;
-static pthread_mutex_t g_pixMapListMutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t  g_pixMapListCond  = PTHREAD_COND_INITIALIZER;
-
-// 是否完成
-static int g_finishPagesNum = 0;
-static bool g_isFinishStatus = false;
-static pthread_mutex_t g_finishMutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t  g_finishCond  = PTHREAD_COND_INITIALIZER;
+//static std::list<void*> g_pagesInfoList;
+//static pthread_mutex_t g_pagesInfoListMutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_cond_t  g_pagesInfoListCond  = PTHREAD_COND_INITIALIZER;
+//
+//// 像素信息
+//static std::list<void*> g_pixMapList;
+//static pthread_mutex_t g_pixMapListMutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_cond_t  g_pixMapListCond  = PTHREAD_COND_INITIALIZER;
+//
+//// 是否完成
+//static int g_finishPagesNum = 0;
+//static bool g_isFinishStatus = false;
+//static pthread_mutex_t g_finishMutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_cond_t  g_finishCond  = PTHREAD_COND_INITIALIZER;
 // A convenience function for dying abruptly on pthread errors.
 
 void
@@ -67,10 +67,35 @@ fail(char *msg)
 	abort();
 }
 
+typedef struct tag_pdf_context {
+    fz_context *ctx;
+
+    fz_document *doc;
+
+    // 总页面数
+    int total_pagecnt;
+
+    // 页面信息转像素
+    std::list<void*> pagesInfoList;
+    pthread_mutex_t pagesInfoListMutex;
+    pthread_cond_t  pagesInfoListCond;
+
+    // 像素信息转图片
+    std::list<void*> pixMapList;
+    pthread_mutex_t pixMapListMutex;
+    pthread_cond_t  pixMapListCond;
+
+    // 是否完成
+    int finishPagesNum;
+    bool isFinishStatus;
+    pthread_mutex_t finishMutex;
+    pthread_cond_t  finishCond;
+} TAG_PDF_CONTEXT_S;
+
 // The data structure passed between the requesting main thread and
 // each rendering thread.
 
-struct data {
+typedef struct tag_pdf_data {
 	// A pointer to the original context in the main thread sent
 	// from main to rendering thread. It will be used to create
 	// each rendering thread's context clone.
@@ -81,10 +106,8 @@ struct data {
 	// Page number sent from main to rendering thread for printing
 	int pagenumber;
 
+    // 总页面数
     int total_pagecnt;
-
-    int begin_pages;
-    int end_pages;
 
 	// The display list as obtained by the main thread and sent
 	// from main to rendering thread. This contains the drawing
@@ -94,39 +117,44 @@ struct data {
 
 	// The area of the page to render as obtained by the main
 	// thread and sent from main to rendering thread.
-        fz_rect bbox;
+    fz_rect bbox;
 
 	// This is the result, a pixmap containing the rendered page.
 	// It is passed first from main thread to the rendering
 	// thread, then its samples are changed by the rendering
 	// thread, and then back from the rendering thread to the main
 	// thread.
-	fz_pixmap *pix;
-};
+    fz_pixmap *pix;
+
+    TAG_PDF_CONTEXT_S *pdfContext;
+} TAG_PDF_DATA_S;
 
 // This is the function run by each rendering function. It takes
 // pointer to an instance of the data structure described above and
 // renders the display list into the pixmap before exiting.
 
 void *
-renderer(void *data)
+renderer(void *param)
 {
-    while (!g_isFinishStatus)
-    {
-        pthread_mutex_lock(&g_pagesInfoListMutex);
-        while (g_pagesInfoList.empty()) {
-            printf("###wait g_pagesInfoList.\n");
-            pthread_cond_wait(&g_pagesInfoListCond, &g_pagesInfoListMutex);
-        }
-        struct data *data = (struct data*)g_pagesInfoList.front();
-        g_pagesInfoList.pop_front();
-        pthread_mutex_unlock(&g_pagesInfoListMutex);
+    TAG_PDF_CONTEXT_S *pdfContext = (TAG_PDF_CONTEXT_S*)param;
 
-        int pagenumber = ((struct data *) data)->pagenumber;
-        fz_context *ctx = ((struct data *) data)->ctx;
-        fz_display_list *list = ((struct data *) data)->list;
-        fz_rect bbox = ((struct data *) data)->bbox;
-        fz_pixmap *&pix = ((struct data *) data)->pix;
+    while (!pdfContext->isFinishStatus)
+    {
+        pthread_mutex_lock(&pdfContext->pagesInfoListMutex);
+        while (pdfContext->pagesInfoList.empty()) {
+            printf("###wait g_pagesInfoList.\n");
+            pthread_cond_wait(&pdfContext->pagesInfoListCond, &pdfContext->pagesInfoListMutex);
+        }
+        TAG_PDF_DATA_S *data = (TAG_PDF_DATA_S*)pdfContext->pagesInfoList.front();
+        pdfContext->pagesInfoList.pop_front();
+        printf("#####Get data.\n");
+        pthread_mutex_unlock(&pdfContext->pagesInfoListMutex);
+
+        int pagenumber = data->pagenumber;
+        fz_context *ctx = data->ctx;
+        fz_display_list *list = data->list;
+        fz_rect bbox = data->bbox;
+        fz_pixmap *&pix = data->pix;
         fz_device *dev;
 
         fprintf(stderr, "thread at page %d loading!\n", pagenumber);
@@ -157,16 +185,15 @@ renderer(void *data)
 
         fprintf(stderr, "thread at page %d done!\n", pagenumber);
 
-        pthread_mutex_lock(&g_pixMapListMutex);
-        g_pixMapList.push_back(data);
+        pthread_mutex_lock(&pdfContext->pixMapListMutex);
+        pdfContext->pixMapList.push_back(data);
 
-        printf("sizeof g_pixMapList: %d.\n", g_pixMapList.size());
-        pthread_cond_signal(&g_pixMapListCond);
+        printf("sizeof g_pixMapList: %d.\n", pdfContext->pixMapList.size());
+        pthread_cond_signal(&pdfContext->pixMapListCond);
         printf("renderer thread singal cond\n");
-        pthread_mutex_unlock(&g_pixMapListMutex);
+        pthread_mutex_unlock(&pdfContext->pixMapListMutex);
         printf("renderer thread unlocked\n");
     }
-	return data;
 }
 
 // These are the two locking functions required by MuPDF when
@@ -192,17 +219,19 @@ void unlock_mutex(void *user, int lock)
 
 void *PixMapMain(void *param)
 {
-    while (!g_isFinishStatus)
+    TAG_PDF_CONTEXT_S *pdfContext = (TAG_PDF_CONTEXT_S*)param;
+
+    while (!pdfContext->isFinishStatus)
     {
-        pthread_mutex_lock(&g_pixMapListMutex);
-        while (g_pixMapList.empty()) {
+        pthread_mutex_lock(&pdfContext->pixMapListMutex);
+        while (pdfContext->pixMapList.empty()) {
             printf("###wait g_pixMapList.\n");
-            pthread_cond_wait(&g_pixMapListCond, &g_pixMapListMutex);
+            pthread_cond_wait(&pdfContext->pixMapListCond, &pdfContext->pixMapListMutex);
         }
 
-        struct data* data = (struct data*)g_pixMapList.front();
-        g_pixMapList.pop_front();
-        pthread_mutex_unlock(&g_pixMapListMutex);
+        TAG_PDF_DATA_S *data = (TAG_PDF_DATA_S*)pdfContext->pixMapList.front();
+        pdfContext->pixMapList.pop_front();
+        pthread_mutex_unlock(&pdfContext->pixMapListMutex);
 
         fz_context *ctx = data->ctx;
         ctx = fz_clone_context(ctx);
@@ -235,34 +264,36 @@ void *PixMapMain(void *param)
         // Free the data structured passed back and forth
         // between the main thread and rendering thread.
 
-        free(data);
+//      free(data);
+        delete data;
         data = NULL;
 
-        pthread_mutex_lock(&g_finishMutex);
-        ++g_finishPagesNum;
-        printf("finish page num: %d.\n", g_finishPagesNum);
-        if (g_finishPagesNum == page_cnt)
+        pthread_mutex_lock(&pdfContext->finishMutex);
+        ++pdfContext->finishPagesNum;
+        printf("finish page num: %d.\n", pdfContext->finishPagesNum);
+        if (pdfContext->finishPagesNum == page_cnt)
         {
             printf("Finish cond signal.\n");
-            g_isFinishStatus = true;
-            pthread_cond_signal(&g_finishCond);
+            pdfContext->isFinishStatus = true;
+            pthread_cond_signal(&pdfContext->finishCond);
         }
-        pthread_mutex_unlock(&g_finishMutex);
+        pthread_mutex_unlock(&pdfContext->finishMutex);
     }
 }
 
 void *LoadPage(void *param)
 {
-    struct data *pdfData = (struct data*)param;
-    int threads = pdfData->total_pagecnt;
-    fz_context *ctx = pdfData->ctx;
-    fz_document *doc = pdfData->doc;
-    int begin_pages = pdfData->begin_pages;
-    int end_pages = pdfData->end_pages;
+    TAG_PDF_CONTEXT_S *pdfContext = (TAG_PDF_CONTEXT_S*)param;
+    int threads = pdfContext->total_pagecnt;
+    fz_context *ctx = pdfContext->ctx;
+    fz_document *doc = pdfContext->doc;
     ctx = fz_clone_context(ctx);
 
+//  delete pdfData;
+//  pdfData = NULL;
+
     printf("#################Total page num: %d.\n", threads);
-    for (int i = begin_pages; i < end_pages; i++)
+    for (int i = 0; i < threads; i++)
     {
         fz_page *page;
         fz_rect bbox;
@@ -270,7 +301,7 @@ void *LoadPage(void *param)
         fz_display_list *list;
         fz_device *dev;
         fz_pixmap *pix;
-        struct data *data;
+//      struct data *data;
 
         // Load the relevant page for each thread. Note, that this
         // cannot be done on the worker threads, as each use of doc
@@ -311,26 +342,25 @@ void *LoadPage(void *param)
         // Populate the data structure to be sent to the
         // rendering thread for this page.
 
-        data = (struct data*)malloc(sizeof (struct data));
-
+//      data = (struct data*)malloc(sizeof (struct data));
+        TAG_PDF_DATA_S *data = new(TAG_PDF_DATA_S);
         data->pagenumber = i + 1;
         data->ctx = ctx;
         data->list = list;
         data->bbox = bbox;
-        data->pix = NULL;//pix;
+        data->pix = NULL;       //pix;
         data->total_pagecnt = threads;
 
-        pthread_mutex_lock(&g_pagesInfoListMutex);
+        pthread_mutex_lock(&pdfContext->pagesInfoListMutex);
 
-        g_pagesInfoList.push_back(data);
-        printf("sizeof g_pagesInfoList: %d.\n", g_pagesInfoList.size());
+        pdfContext->pagesInfoList.push_back(data);
+        printf("sizeof g_pagesInfoList: %d.\n", pdfContext->pagesInfoList.size());
 
-        pthread_cond_signal(&g_pagesInfoListCond);
+        pthread_cond_signal(&pdfContext->pagesInfoListCond);
         printf("g_pagesInfoList thread singal cond\n");
-        pthread_mutex_unlock(&g_pagesInfoListMutex);
+        pthread_mutex_unlock(&pdfContext->pagesInfoListMutex);
         printf("g_pagesInfoList thread unlocked\n");
     }
-
 }
 
 int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void *param = NULL)
@@ -348,11 +378,18 @@ int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void 
 
 int main(int argc, char **argv)
 {
+    TAG_PDF_CONTEXT_S *pdfContext = new(TAG_PDF_CONTEXT_S);
+    pthread_mutex_init(&pdfContext->pagesInfoListMutex, NULL);
+    pthread_mutex_init(&pdfContext->pixMapListMutex, NULL);
+    pthread_mutex_init(&pdfContext->finishMutex, NULL);
+    pdfContext->finishPagesNum = 0;
+    pdfContext->isFinishStatus = false;
+
     pthread_t rendererThreadList[2];
-    make_thread(rendererThreadList, sizeof(rendererThreadList) / sizeof(*rendererThreadList), renderer);
+    make_thread(rendererThreadList, sizeof(rendererThreadList) / sizeof(*rendererThreadList), renderer, pdfContext);
 
     pthread_t pthreadList[6];
-    make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain);
+    make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain, pdfContext);
 
     const char *filename = argc >= 2 ? argv[1] : "";
 	pthread_t *thread = NULL;
@@ -407,40 +444,25 @@ int main(int argc, char **argv)
 	threads = fz_count_pages(ctx, doc);
     fprintf(stderr, "spawning %d threads, one per page...\n", threads);
 
-    int avg = threads;// / 2;
-    printf("###avg: %d.\n", avg);
-
-    struct data *pdfData = (struct data*)malloc(sizeof (struct data));
-    pdfData->total_pagecnt = threads;
-    pdfData->begin_pages = 0;
-    pdfData->end_pages = avg;
-    pdfData->ctx = ctx;
-    pdfData->doc = doc;
+    pdfContext->ctx = ctx;
+    pdfContext->doc = doc;
+    pdfContext->total_pagecnt = threads;
 
     pthread_t threadId[1];
-    make_thread(threadId, sizeof(threadId) / sizeof(*threadId), LoadPage, pdfData);
+    make_thread(threadId, sizeof(threadId) / sizeof(*threadId), LoadPage, pdfContext);
 
-//  struct data *pdfData2 = (struct data*)malloc(sizeof (struct data));
-//  pdfData2->total_pagecnt = threads;
-//  pdfData2->begin_pages = avg;
-//  pdfData2->end_pages = threads;
-//  pdfData2->ctx = ctx;
-//  pdfData2->doc = doc;
-//
-//  pthread_t threadId2[1];
-//  make_thread(threadId2, sizeof(threadId2) / sizeof(*threadId2), LoadPage, pdfData2);
-
-    pthread_mutex_lock(&g_finishMutex);
-    while (!g_isFinishStatus) {
-        printf("@@@@Wait finish, page num: %d.\n", g_finishPagesNum);
-        pthread_cond_wait(&g_finishCond, &g_finishMutex);
+    pthread_mutex_lock(&pdfContext->finishMutex);
+    while (!pdfContext->isFinishStatus) {
+        printf("@@@@Wait finish, page num: %d.\n", pdfContext->finishPagesNum);
+        pthread_cond_wait(&pdfContext->finishCond, &pdfContext->finishMutex);
     }
-    pthread_mutex_unlock(&g_finishMutex);
+    pthread_mutex_unlock(&pdfContext->finishMutex);
 
     fprintf(stderr, "finally!\n");
 	fflush(NULL);
 
-    free(pdfData);
+    delete(pdfContext);
+    pdfContext = NULL;
 
 	// Finally the document is closed and the main thread's
 	// context is freed.
