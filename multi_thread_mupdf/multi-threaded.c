@@ -26,14 +26,17 @@
 // depending on your environment.
 
 // Include the MuPDF header file, and pthread's header file.
-#include <mupdf/fitz.h>
-#include <pthread.h>
-
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <list>
 #include <vector>
+#include <memory>
+
+#include <pthread.h>
 #include <unistd.h>
+
+#include <mupdf/fitz.h>
 
 static int alphabits = 8;
 static int layout_use_doc_css = 1;
@@ -125,8 +128,6 @@ typedef struct tag_pdf_data {
 	// thread, and then back from the rendering thread to the main
 	// thread.
     fz_pixmap *pix;
-
-    TAG_PDF_CONTEXT_S *pdfContext;
 } TAG_PDF_DATA_S;
 
 // This is the function run by each rendering function. It takes
@@ -350,7 +351,7 @@ int main(int argc, char **argv)
     const char *filename = argv[1];
 
     // 环境上下文
-    TAG_PDF_CONTEXT_S *pdfContext = new(TAG_PDF_CONTEXT_S);
+    std::unique_ptr<TAG_PDF_CONTEXT_S> pdfContext(new TAG_PDF_CONTEXT_S());
     pthread_mutex_init(&pdfContext->pagesInfoListMutex, NULL);
     pthread_mutex_init(&pdfContext->pixMapListMutex, NULL);
     pthread_mutex_init(&pdfContext->finishMutex, NULL);
@@ -359,11 +360,11 @@ int main(int argc, char **argv)
 
     // 页面转换像素消费者
     pthread_t rendererThreadList[2];
-    make_thread(rendererThreadList, sizeof(rendererThreadList) / sizeof(*rendererThreadList), Renderer, pdfContext);
+    make_thread(rendererThreadList, sizeof(rendererThreadList) / sizeof(*rendererThreadList), Renderer, pdfContext.get());
 
     // 像素转图片消费者
     pthread_t pthreadList[4];
-    make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain, pdfContext);
+    make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain, pdfContext.get());
 
     // Initialize FZ_LOCK_MAX number of non-recursive mutexes.
     pthread_mutex_t mutex[FZ_LOCK_MAX];
@@ -409,7 +410,7 @@ int main(int argc, char **argv)
 
     // 加载页面线程
     pthread_t threadId[1];
-    make_thread(threadId, sizeof(threadId) / sizeof(*threadId), LoadPage, pdfContext);
+    make_thread(threadId, sizeof(threadId) / sizeof(*threadId), LoadPage, pdfContext.get());
 
     // 等待流程处理完成
     pthread_mutex_lock(&pdfContext->finishMutex);
@@ -420,10 +421,7 @@ int main(int argc, char **argv)
     pthread_mutex_unlock(&pdfContext->finishMutex);
 
     fprintf(stderr, "finally!\n");
-	fflush(NULL);
-
-    delete(pdfContext);
-    pdfContext = NULL;
+    fflush(NULL);
 
 	// Finally the document is closed and the main thread's
     // context is freed.
