@@ -134,7 +134,7 @@ typedef struct tag_pdf_data {
 // renders the display list into the pixmap before exiting.
 
 void *
-renderer(void *param)
+Renderer(void *param)
 {
     TAG_PDF_CONTEXT_S *pdfContext = (TAG_PDF_CONTEXT_S*)param;
 
@@ -363,7 +363,7 @@ void *LoadPage(void *param)
     }
 }
 
-int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void *param = NULL)
+inline int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void *param = NULL)
 {
     for (int i = 0; i < threadCnt; ++i)
     {
@@ -378,6 +378,9 @@ int make_thread(pthread_t *pthreadList, int threadCnt, void *(fun)(void*), void 
 
 int main(int argc, char **argv)
 {
+    const char *filename = argv[1];
+
+    // 环境上下文
     TAG_PDF_CONTEXT_S *pdfContext = new(TAG_PDF_CONTEXT_S);
     pthread_mutex_init(&pdfContext->pagesInfoListMutex, NULL);
     pthread_mutex_init(&pdfContext->pixMapListMutex, NULL);
@@ -385,27 +388,21 @@ int main(int argc, char **argv)
     pdfContext->finishPagesNum = 0;
     pdfContext->isFinishStatus = false;
 
+    // 页面转换像素消费者
     pthread_t rendererThreadList[2];
-    make_thread(rendererThreadList, sizeof(rendererThreadList) / sizeof(*rendererThreadList), renderer, pdfContext);
+    make_thread(rendererThreadList, sizeof(rendererThreadList) / sizeof(*rendererThreadList), Renderer, pdfContext);
 
-    pthread_t pthreadList[6];
+    // 像素转图片消费者
+    pthread_t pthreadList[4];
     make_thread(pthreadList, sizeof(pthreadList) / sizeof(*pthreadList), PixMapMain, pdfContext);
 
-    const char *filename = argc >= 2 ? argv[1] : "";
-	pthread_t *thread = NULL;
-	fz_locks_context locks;
-	pthread_mutex_t mutex[FZ_LOCK_MAX];
-	fz_context *ctx;
-	fz_document *doc;
-	int threads;
-	int i;
-
-	// Initialize FZ_LOCK_MAX number of non-recursive mutexes.
-
-	for (i = 0; i < FZ_LOCK_MAX; i++)
+    // Initialize FZ_LOCK_MAX number of non-recursive mutexes.
+    pthread_mutex_t mutex[FZ_LOCK_MAX];
+    for (int i = 0; i < FZ_LOCK_MAX; i++)
 	{
-		if (pthread_mutex_init(&mutex[i], NULL) != 0)
+        if (pthread_mutex_init(&mutex[i], NULL) != 0) {
 			fail("pthread_mutex_init()");
+        }
 	}
 
 	// Initialize the locking structure with function pointers to
@@ -413,44 +410,39 @@ int main(int argc, char **argv)
 	// the user data is a pointer to the array of mutexes so the
 	// locking functions can find the relevant lock to change when
 	// they are called. This way we avoid global variables.
-
+    fz_locks_context locks;
 	locks.user = mutex;
 	locks.lock = lock_mutex;
 	locks.unlock = unlock_mutex;
 
 	// This is the main threads context function, so supply the
 	// locking structure. This context will be used to parse all
-	// the pages from the document.
+    // the pages from the document.
+    fz_context *ctx = fz_new_context(NULL, &locks, FZ_STORE_UNLIMITED);
 
-	ctx = fz_new_context(NULL, &locks, FZ_STORE_UNLIMITED);
-
-	// Register default file types.
-
-	fz_register_document_handlers(ctx);
-
+    // Register default file types.
+    fz_register_document_handlers(ctx);
     fz_set_aa_level(ctx, alphabits);
-
     fz_set_use_document_css(ctx, layout_use_doc_css);
 
 	// Open the PDF, XPS or CBZ document. Note, this binds doc to ctx.
-	// You must only ever use doc with ctx - never a clone of it!
-
-	doc = fz_open_document(ctx, filename);
+    // You must only ever use doc with ctx - never a clone of it!
+    fz_document *doc = fz_open_document(ctx, filename);
 
 	// Retrieve the number of pages, which translates to the
-	// number of threads used for rendering pages.
-
+    // number of threads used for rendering pages.
     fz_layout_document(ctx, doc, layout_w, layout_h, layout_em);
-	threads = fz_count_pages(ctx, doc);
-    fprintf(stderr, "spawning %d threads, one per page...\n", threads);
+    int pages_cnt = fz_count_pages(ctx, doc);
 
     pdfContext->ctx = ctx;
     pdfContext->doc = doc;
-    pdfContext->total_pagecnt = threads;
+    pdfContext->total_pagecnt = pages_cnt;
 
+    // 加载页面线程
     pthread_t threadId[1];
     make_thread(threadId, sizeof(threadId) / sizeof(*threadId), LoadPage, pdfContext);
 
+    // 等待流程处理完成
     pthread_mutex_lock(&pdfContext->finishMutex);
     while (!pdfContext->isFinishStatus) {
         printf("@@@@Wait finish, page num: %d.\n", pdfContext->finishPagesNum);
@@ -465,8 +457,7 @@ int main(int argc, char **argv)
     pdfContext = NULL;
 
 	// Finally the document is closed and the main thread's
-	// context is freed.
-
+    // context is freed.
 	fz_drop_document(ctx, doc);
 	fz_drop_context(ctx);
 
