@@ -29,9 +29,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <iostream>
 #include <list>
 #include <vector>
 #include <memory>
+#include <atomic>
 
 #include <pthread.h>
 #include <unistd.h>
@@ -89,8 +91,9 @@ typedef struct tag_pdf_context {
     pthread_cond_t  pixMapListCond;
 
     // 是否完成
-    int finishPagesNum;
-    bool isFinishStatus;
+    std::atomic_int finishPagesNum;
+    std::atomic_int isFinishStatus;
+
     pthread_mutex_t finishMutex;
     pthread_cond_t  finishCond;
 } TAG_PDF_CONTEXT_S;
@@ -257,16 +260,15 @@ void *PixMapMain(void *param)
         delete data;
         data = NULL;
 
-        pthread_mutex_lock(&pdfContext->finishMutex);
         ++pdfContext->finishPagesNum;
-        printf("finish page num: %d.\n", pdfContext->finishPagesNum);
+        std::cout << "finish page num: " << pdfContext->finishPagesNum << std::endl;
         if (pdfContext->finishPagesNum == page_cnt)
         {
-            printf("Finish cond signal.\n");
-            pdfContext->isFinishStatus = true;
+            ++pdfContext->isFinishStatus;
+            pthread_mutex_lock(&pdfContext->finishMutex);
             pthread_cond_signal(&pdfContext->finishCond);
+            pthread_mutex_unlock(&pdfContext->finishMutex);
         }
-        pthread_mutex_unlock(&pdfContext->finishMutex);
     }
 }
 
@@ -356,7 +358,7 @@ int main(int argc, char **argv)
     pthread_mutex_init(&pdfContext->pixMapListMutex, NULL);
     pthread_mutex_init(&pdfContext->finishMutex, NULL);
     pdfContext->finishPagesNum = 0;
-    pdfContext->isFinishStatus = false;
+    pdfContext->isFinishStatus = 0;
 
     // 页面转换像素消费者
     pthread_t rendererThreadList[2];
@@ -413,12 +415,13 @@ int main(int argc, char **argv)
     make_thread(threadId, sizeof(threadId) / sizeof(*threadId), LoadPage, pdfContext.get());
 
     // 等待流程处理完成
-    pthread_mutex_lock(&pdfContext->finishMutex);
     while (!pdfContext->isFinishStatus) {
-        printf("@@@@Wait finish, page num: %d.\n", pdfContext->finishPagesNum);
+        pthread_mutex_lock(&pdfContext->finishMutex);
+        std::cout << "@@@@1Wait finish, page num: " << pdfContext->finishPagesNum << std::endl;
         pthread_cond_wait(&pdfContext->finishCond, &pdfContext->finishMutex);
+        std::cout << "@@@@2Wait finish, page num: " << pdfContext->finishPagesNum << std::endl;
+        pthread_mutex_unlock(&pdfContext->finishMutex);
     }
-    pthread_mutex_unlock(&pdfContext->finishMutex);
 
     fprintf(stderr, "finally!\n");
     fflush(NULL);
