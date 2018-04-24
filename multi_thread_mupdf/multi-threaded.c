@@ -93,6 +93,7 @@ typedef struct tag_pdf_context {
     // 是否完成
     std::atomic_int finishPagesNum;
     std::atomic_int isFinishStatus;
+    std::atomic_flag finishLock;
 
     pthread_mutex_t finishMutex;
     pthread_cond_t  finishCond;
@@ -265,6 +266,7 @@ void *PixMapMain(void *param)
         if (pdfContext->finishPagesNum == page_cnt)
         {
             ++pdfContext->isFinishStatus;
+//          pdfContext->finishLock.clear(std::memory_order_release);
             pthread_mutex_lock(&pdfContext->finishMutex);
             pthread_cond_signal(&pdfContext->finishCond);
             pthread_mutex_unlock(&pdfContext->finishMutex);
@@ -359,6 +361,7 @@ int main(int argc, char **argv)
     pthread_mutex_init(&pdfContext->finishMutex, NULL);
     pdfContext->finishPagesNum = 0;
     pdfContext->isFinishStatus = 0;
+    pdfContext->finishLock.test_and_set(std::memory_order_acquire);
 
     // 页面转换像素消费者
     pthread_t rendererThreadList[2];
@@ -415,6 +418,10 @@ int main(int argc, char **argv)
     make_thread(threadId, sizeof(threadId) / sizeof(*threadId), LoadPage, pdfContext.get());
 
     // 等待流程处理完成
+//  while (pdfContext->finishLock.test_and_set()) {
+//  }
+//  std::cout << "@@@@2Wait finish, page num: " << pdfContext->finishPagesNum << std::endl;
+
     while (!pdfContext->isFinishStatus) {
         pthread_mutex_lock(&pdfContext->finishMutex);
         std::cout << "@@@@1Wait finish, page num: " << pdfContext->finishPagesNum << std::endl;
