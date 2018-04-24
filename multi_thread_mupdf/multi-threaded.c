@@ -142,7 +142,7 @@ Renderer(void *param)
     {
         pthread_mutex_lock(&pdfContext->pagesInfoListMutex);
         while (pdfContext->pagesInfoList.empty()) {
-            printf("###wait g_pagesInfoList.\n");
+            printf("###wait pagesInfoList.\n");
             pthread_cond_wait(&pdfContext->pagesInfoListCond, &pdfContext->pagesInfoListMutex);
         }
         TAG_PDF_DATA_S *data = (TAG_PDF_DATA_S*)pdfContext->pagesInfoList.front();
@@ -156,15 +156,14 @@ Renderer(void *param)
         fz_rect bbox = data->bbox;
         fz_pixmap *&pix = data->pix;
         fz_device *dev;
-
         fprintf(stderr, "thread at page %d loading!\n", pagenumber);
 
         // The context pointer is pointing to the main thread's
         // context, so here we create a new context based on it for
         // use in this thread.
-
         ctx = fz_clone_context(ctx);
 
+        // 生成像素信息
         fz_irect rbox;
         pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_round_rect(&rbox, &bbox), 0, 0);
         fz_clear_pixmap_with_value(ctx, pix, 0xff);
@@ -172,7 +171,6 @@ Renderer(void *param)
 
         // Next we run the display list through the draw device which
         // will render the request area of the page to the pixmap.
-
         fprintf(stderr, "thread at page %d rendering!\n", pagenumber);
         dev = fz_new_draw_device(ctx, &fz_identity, pix);
         fz_run_display_list(ctx, list, dev, &fz_identity, &bbox, NULL);
@@ -180,9 +178,7 @@ Renderer(void *param)
         fz_drop_device(ctx, dev);
 
         // This threads context is freed.
-
         fz_drop_context(ctx);
-
         fprintf(stderr, "thread at page %d done!\n", pagenumber);
 
         pthread_mutex_lock(&pdfContext->pixMapListMutex);
@@ -225,7 +221,7 @@ void *PixMapMain(void *param)
     {
         pthread_mutex_lock(&pdfContext->pixMapListMutex);
         while (pdfContext->pixMapList.empty()) {
-            printf("###wait g_pixMapList.\n");
+            printf("###wait pixMapList.\n");
             pthread_cond_wait(&pdfContext->pixMapListCond, &pdfContext->pixMapListMutex);
         }
 
@@ -237,18 +233,15 @@ void *PixMapMain(void *param)
         ctx = fz_clone_context(ctx);
         int page_cnt = data->total_pagecnt;
 
-        fprintf(stderr, "####66 Page: %d\n", data->pagenumber);
-
         char filename[42];
-
         sprintf(filename, "multi-out%04d.png", data->pagenumber);
         fprintf(stderr, "\tSaving %s...\n", filename);
 
         // Write the rendered image to a PNG file
-
         fz_set_pixmap_resolution(ctx, data->pix, resolution, resolution);
         fz_save_pixmap_as_png(ctx, data->pix, filename);
 
+        // 写图片信息到缓存
         fz_buffer *buffer = fz_new_buffer_from_pixmap_as_png(ctx, data->pix, NULL);
         unsigned char *datap = NULL;
         ssize_t png_size = fz_buffer_storage(ctx, buffer, &datap);
@@ -257,14 +250,9 @@ void *PixMapMain(void *param)
 
         // Free the thread's pixmap and display list since
         // they were allocated by the main thread above.
-
         fz_drop_pixmap(ctx, data->pix);
         fz_drop_display_list(ctx, data->list);
 
-        // Free the data structured passed back and forth
-        // between the main thread and rendering thread.
-
-//      free(data);
         delete data;
         data = NULL;
 
@@ -284,16 +272,13 @@ void *PixMapMain(void *param)
 void *LoadPage(void *param)
 {
     TAG_PDF_CONTEXT_S *pdfContext = (TAG_PDF_CONTEXT_S*)param;
-    int threads = pdfContext->total_pagecnt;
+    int total_pages = pdfContext->total_pagecnt;
     fz_context *ctx = pdfContext->ctx;
     fz_document *doc = pdfContext->doc;
     ctx = fz_clone_context(ctx);
 
-//  delete pdfData;
-//  pdfData = NULL;
-
-    printf("#################Total page num: %d.\n", threads);
-    for (int i = 0; i < threads; i++)
+    printf("#################Total page num: %d.\n", total_pages);
+    for (int i = 0; i < total_pages; i++)
     {
         fz_page *page;
         fz_rect bbox;
@@ -301,28 +286,23 @@ void *LoadPage(void *param)
         fz_display_list *list;
         fz_device *dev;
         fz_pixmap *pix;
-//      struct data *data;
 
         // Load the relevant page for each thread. Note, that this
         // cannot be done on the worker threads, as each use of doc
         // uses ctx, and only one thread can be using ctx at a time.
-
         page = fz_load_page(ctx, doc, i);
 
         // Compute the bounding box for each page.
-
         fz_bound_page(ctx, page, &bbox);
 
         // Create a display list that will hold the drawing
         // commands for the page. Once we have the display list
         // this can safely be used on any other thread as it is
         // not bound to a given context.
-
         list = fz_new_display_list(ctx, &bbox);
 
         // Run the loaded page through a display list device
         // to populate the page's display list.
-
         dev = fz_new_list_device(ctx, list);
         fz_run_page(ctx, page, dev, &fz_identity, NULL);
         fz_close_device(ctx, dev);
@@ -330,36 +310,25 @@ void *LoadPage(void *param)
 
         // The page is no longer needed, all drawing commands
         // are now in the display list.
-
         fz_drop_page(ctx, page);
 
-        // Create a white pixmap using the correct dimensions.
-
-//      pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb(ctx), fz_round_rect(&rbox, &bbox), 0, 0);
-//      fz_clear_pixmap_with_value(ctx, pix, 0xff);
-//      fz_set_pixmap_resolution(ctx, pix, resolution, resolution);
-
-        // Populate the data structure to be sent to the
-        // rendering thread for this page.
-
-//      data = (struct data*)malloc(sizeof (struct data));
         TAG_PDF_DATA_S *data = new(TAG_PDF_DATA_S);
         data->pagenumber = i + 1;
         data->ctx = ctx;
         data->list = list;
         data->bbox = bbox;
-        data->pix = NULL;       //pix;
-        data->total_pagecnt = threads;
+        data->pix = NULL;
+        data->total_pagecnt = total_pages;
 
         pthread_mutex_lock(&pdfContext->pagesInfoListMutex);
 
         pdfContext->pagesInfoList.push_back(data);
-        printf("sizeof g_pagesInfoList: %d.\n", pdfContext->pagesInfoList.size());
+        printf("sizeof pagesInfoList: %d.\n", pdfContext->pagesInfoList.size());
 
         pthread_cond_signal(&pdfContext->pagesInfoListCond);
-        printf("g_pagesInfoList thread singal cond\n");
+        printf("pagesInfoList thread singal cond\n");
         pthread_mutex_unlock(&pdfContext->pagesInfoListMutex);
-        printf("g_pagesInfoList thread unlocked\n");
+        printf("pagesInfoList thread unlocked\n");
     }
 }
 
