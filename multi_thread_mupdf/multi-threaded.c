@@ -93,7 +93,7 @@ typedef struct tag_pdf_context {
     // 是否完成
     std::atomic_int finishPagesNum;
     std::atomic_int isFinishStatus;
-    std::atomic_flag finishLock;
+//  std::atomic_flag finishLock;
 
     pthread_mutex_t finishMutex;
     pthread_cond_t  finishCond;
@@ -359,9 +359,9 @@ int main(int argc, char **argv)
     pthread_mutex_init(&pdfContext->pagesInfoListMutex, NULL);
     pthread_mutex_init(&pdfContext->pixMapListMutex, NULL);
     pthread_mutex_init(&pdfContext->finishMutex, NULL);
-    pdfContext->finishPagesNum = 0;
-    pdfContext->isFinishStatus = 0;
-    pdfContext->finishLock.test_and_set(std::memory_order_acquire);
+    pdfContext->finishPagesNum.store(0);
+    pdfContext->isFinishStatus.store(0);
+//  pdfContext->finishLock.test_and_set(std::memory_order_acquire);
 
     // 页面转换像素消费者
     pthread_t rendererThreadList[2];
