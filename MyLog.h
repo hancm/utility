@@ -140,8 +140,13 @@ private:
                 return;
             }
 
+            // 设置异步日志模式
+            spdlog::set_async_mode(4096);
+
+            // 添加目的端
             std::vector<spdlog::sink_ptr> sinks;
 
+            // 标准输出
 #if (1 == _MYLOG_SINK_)
             sinks.push_back(std::make_shared<spdlog::sinks::stdout_sink_mt>());
 #endif
@@ -164,7 +169,7 @@ private:
             //设置日志格式[年-月-日 时:分:秒.毫秒][进程号:线程号][调试级别](宏定义中添加: [文件名:行号]<函数名> - 具体内容)
             logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e][%P:%t][%l]%v");
 
-            //设置当出发err或更严重的错误时立刻刷新日志到disk
+            //设置当出发debug或更严重的错误时立刻刷新日志到disk
             logger->flush_on(spdlog::level::debug);
         } catch (...) {
             destroy();
