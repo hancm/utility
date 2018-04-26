@@ -19,7 +19,10 @@ $(TARGET): $(OBJS)
 
 lib: $(OBJS)
 	ar rcs $@ $^
-	
+
+#test: $(TARGET) test_main.o
+#	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+
 ifneq ($(MAKECMDGOALS), clean)
 -include $(DEPS)
 endif
@@ -32,4 +35,4 @@ endif
 	
 .PHONY: clean
 clean:
-	rm -f $(TARGET) $(OBJS) $(DEPS) *.o *.d
+	rm -f $(TARGET) $(OBJS) $(DEPS) *.o *.d test
