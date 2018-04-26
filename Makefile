@@ -16,6 +16,9 @@ DEPS = $(SOURCES:.cpp=.d)
 
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+lib: $(OBJS)
+	ar rcs $@ $^
 	
 ifneq ($(MAKECMDGOALS), clean)
 -include $(DEPS)
@@ -24,6 +27,9 @@ endif
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -MMD -MF $*.d -MP -MT $@ -c -o $@ $<
 	
+%.o: %.c
+	$(CXX) $(CXXFLAGS) $(INCLUDE) -MMD -MF $*.d -MP -MT $@ -c -o $@ $<
+	
 .PHONY: clean
 clean:
-	rm -f $(TARGET) $(OBJS) $(DEPS)
+	rm -f $(TARGET) $(OBJS) $(DEPS) *.o *.d
