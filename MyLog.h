@@ -2,7 +2,7 @@
 #define __MYLOG_H__
 
 // Usage:
-// 定义日志路径：static MyLog MLog("/tmp/MyLog.log");
+// 定义日志路径：static MyLog MLog("/var/log/MyLog.log");
 // LOG_TRACE(); LOG_INFO(); 打印日志
 // 编译release、链接时优化选项增加速度：-Wall -pthread -O3 -flto -DNDEBUG
 
@@ -28,6 +28,11 @@
 // Linux使用CLOCK_REALTIME_COARSE
 #ifndef SPDLOG_CLOCK_COARSE
 #define SPDLOG_CLOCK_COARSE
+#endif
+
+// 日志级别名称
+#ifndef SPDLOG_LEVEL_NAMES
+#define SPDLOG_LEVEL_NAMES { "TRACE", "DEBUG", "INFO",  "WARNING", "ERROR", "CRITICAL", "OFF" }
 #endif
 
 // 引入log头文件
