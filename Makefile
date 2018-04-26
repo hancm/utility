@@ -15,7 +15,7 @@ OBJS = $(SOURCES:.cpp=.o)
 DEPS = $(SOURCES:.cpp=.d)
 
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(LIBS) -o $@ $^
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 	
 ifneq ($(MAKECMDGOALS), clean)
 -include $(DEPS)
