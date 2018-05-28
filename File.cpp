@@ -21,7 +21,6 @@
 #endif
 
 #include "MyLog.h"
-
 #include "File.h"
 
 using namespace std;
@@ -413,7 +412,7 @@ int File::createDirectory(const string& path)
 
     if(directoryExists(path))
     {
-        LOG_DEBUG("Dir[%s] exists.", path.c_str());
+        LOG_DEBUG("Dir[{}] exists.", path.c_str());
         return 0;
     }
 
@@ -432,20 +431,24 @@ int File::createDirectory(const string& path)
 #ifdef _WIN32
     int result = _wmkdir(encodeName(path).c_str());
     if ( result ) {
-        LOG_DEBUG("Creating directory '%s' failed with errno = %d", path.c_str(), errno);
+        LOG_DEBUG("Failed to creating directory: {}, failed with errno = {}", path.c_str(), errno);
     } else {
-        LOG_DEBUG("Created directory '%s'", path.c_str());
+        LOG_DEBUG("Succeed to created directory {}.", path.c_str());
     }
 #else
     umask(0);
     // 0775
     int result = mkdir(encodeName(path).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH );
-    LOG_DEBUG("Created directory '%s' with result = %d", path.c_str(), result);
+    if ( result ) {
+        LOG_DEBUG("Failed to creating directory: {}, failed with errno = {}", path.c_str(), errno);
+    } else {
+        LOG_DEBUG("Succeed to created directory {}.", path.c_str());
+    }
 #endif
 
     if(result || !directoryExists(path))
     {
-        LOG_ERROR("Failed to create directory '%s'", path.c_str());
+        LOG_ERROR("Failed to create directory: {}", path.c_str());
         return -1;
     }
 
