@@ -4,7 +4,7 @@
 // Usage:
 // 定义日志路径：static MyLog MLog("/var/log/MyLog.log");
 // LOG_TRACE(); LOG_INFO(); 打印日志
-// 编译release、链接时优化选项增加速度：-Wall -pthread -O3 -flto -DNDEBUG
+// 编译release、链接时优化选项增加速度：-Wall -pthread -O2 -flto -DNDEBUG
 
 // 0：rotating日志
 // 1：rotating日志 + 增加控制台日志
