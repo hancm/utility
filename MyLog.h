@@ -4,13 +4,13 @@
 // Usage:
 // 定义日志路径：static MyLog MLog("/var/log/MyLog.log");
 // LOG_TRACE(); LOG_INFO(); 打印日志
-// 编译release、链接时优化选项增加速度：-Wall -pthread -O2 -flto -DNDEBUG
+// 编译release、链接时优化选项增加速度：-Wall -pthread -O3 -flto -DNDEBUG
 
 // 0：rotating日志
 // 1：rotating日志 + 增加控制台日志
 #define _MYLOG_SINK_    0
 
-// 0: trace级别
+// 0: DEBUG级别
 // 1：ERROR级别
 #define _MYLOG_LEVEL_   0
 
@@ -161,7 +161,7 @@ private:
 
             // 设置日志级别
 #if (0 == _MYLOG_LEVEL_)
-            logger->set_level(spdlog::level::trace);
+            logger->set_level(spdlog::level::debug);
 #elif (1 == _MYLOG_LEVEL_)
             logger->set_level(spdlog::level::err);
 #endif
