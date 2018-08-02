@@ -10,7 +10,7 @@
 // 1：rotating日志 + 增加控制台日志
 #define _MYLOG_SINK_    0
 
-// 0: DEBUG级别
+// 0: TRACE级别
 // 1：ERROR级别
 #define _MYLOG_LEVEL_   0
 
@@ -161,7 +161,7 @@ private:
 
             // 设置日志级别
 #if (0 == _MYLOG_LEVEL_)
-            logger->set_level(spdlog::level::debug);
+            logger->set_level(spdlog::level::trace);
 #elif (1 == _MYLOG_LEVEL_)
             logger->set_level(spdlog::level::err);
 #endif
