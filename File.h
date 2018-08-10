@@ -49,7 +49,10 @@ namespace MyUtilityLib
 #if !defined(_WIN32) && !defined(__APPLE__)
 		  static std::string convertUTF8(const std::string &str_in, bool to_UTF);
 #endif
-		  static std::stack<std::string> tempFiles;
+		  // static std::stack<std::string> tempFiles;
+		  static int readFileInfo(const std::string &strFilePath, std::vector<char> &vecFileBuf);
+		  static int writeFileInfo(const std::string &strFilePath, const char *fileBuf, size_t fileLen);
+		  static int copyFile(const char *srcFilePath, const char *dstFilePath);
 	};
 } /* end for namespace MyUtilityLib */
 

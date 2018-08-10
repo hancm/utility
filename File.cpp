@@ -113,7 +113,7 @@ string File::convertUTF8(const string &str_in, bool to_UTF)
 }
 #endif
 
-stack<string> File::tempFiles;
+// stack<string> File::tempFiles;
 
 string File::cwd()
 {
@@ -391,8 +391,66 @@ string File::tempFileName()
      close(fd);
 #endif
     string path = decodeName(fileName);
-    tempFiles.push(path);
+    // tempFiles.push(path);
     return path;
+}
+
+int File::readFileInfo(const std::string &strFilePath, std::vector<char> &vecFileBuf)
+{
+    std::ifstream inFile(strFilePath.c_str(), std::ios::in | std::ios::binary);
+    if (!inFile) {
+        LOG_ERROR("Failed to ifstream file: {}.", strFilePath);
+        return -1;
+    }
+
+    inFile.seekg(0, std::ios::end);
+    size_t fileSize = inFile.tellg();
+    inFile.seekg(0, std::ios::beg);
+
+    vecFileBuf.clear();
+    vecFileBuf.resize(fileSize);
+    if (!inFile.read(&vecFileBuf[0], fileSize)) {
+        LOG_ERROR("Failed to read file: {}, size: {}.", strFilePath, fileSize);
+        inFile.close();
+        return -1;
+    }
+
+    inFile.close();
+    return 0;
+}
+
+int File::writeFileInfo(const std::string &strFilePath, const char *fileBuf, size_t fileLen)
+{
+    std::ofstream outfile(strFilePath.c_str(), std::ios::out | std::ios::binary);
+    if (!outfile) {
+        LOG_ERROR("Failed to ofstream file: {}.", strFilePath);
+        return -1;
+    }
+
+    if (!outfile.write(fileBuf, fileLen)) {
+        LOG_ERROR("Failed to write file: {}, size: {}.", strFilePath, fileLen);
+        outfile.close();
+        return -1;
+    }
+
+    outfile.close();
+    return 0;
+}
+
+int File::copyFile(const char *srcFilePath, const char *dstFilePath)
+{
+    std::vector<char> vecFileBuf;
+    if (0 != ReadFileInfo(srcFilePath, vecFileBuf)) {
+        LOG_ERROR("Failed to read file: {}.", srcFilePath);
+        return -1;
+    }
+
+    if (0 != WriteFileInfo(dstFilePath, &vecFileBuf[0], vecFileBuf.size())) {
+        LOG_ERROR("Failed to write file: {}.", dstFilePath);
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
@@ -584,7 +642,7 @@ string File::fullPathUrl(const string &path)
  * Tries to delete all temporary files and directories whose names were handled out with tempFileName, tempDirectory and createTempDirectory.
  * The deletion of directories is recursive.
  */
-void File::deleteTempFiles()
+/*void File::deleteTempFiles()
 {
     while(!tempFiles.empty())
     {
@@ -592,7 +650,7 @@ void File::deleteTempFiles()
             LOG_WARN( "Tried to remove the temporary file or directory '%s', but failed.", tempFiles.top().c_str() );
         tempFiles.pop();
     }
-}
+}*/
 
 bool File::removeFile(const string &path)
 {
