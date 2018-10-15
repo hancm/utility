@@ -22,8 +22,31 @@
  * Modification: 1)add notes to all the functions
  * 2)add SM3_SelfTest function
  **************************************************************************/
+#include <string.h>
+
 #include "sm3.h"
 
+#define SM3_len 256
+#define SM3_T1  0x79CC4519
+#define SM3_T2  0x7A879D8A
+#define SM3_IVA 0x7380166f
+#define SM3_IVB 0x4914b2b9
+#define SM3_IVC 0x172442d7
+#define SM3_IVD 0xda8a0600
+#define SM3_IVE 0xa96f30bc
+#define SM3_IVF 0x163138aa
+#define SM3_IVG 0xe38dee4d
+#define SM3_IVH 0xb0fb0e4e
+
+/* Various logical functions */
+#define SM3_p1( x )     (x ^ SM3_rotl32( x, 15 ) ^ SM3_rotl32( x, 23 ) )
+#define SM3_p0( x )     (x ^ SM3_rotl32( x, 9 ) ^ SM3_rotl32( x, 17 ) )
+#define SM3_ff0( a, b, c )  (a ^ b ^ c)
+#define SM3_ff1( a, b, c )  ( (a & b) | (a & c) | (b & c) )
+#define SM3_gg0( e, f, g )  (e ^ f ^ g)
+#define SM3_gg1( e, f, g )  ( (e & f) | ( (~e) & g) )
+#define SM3_rotl32( x, n )  ( ( ( (unsigned int) x) << n) | ( ( (unsigned int) x) >> (32 - n) ) )
+#define SM3_rotr32( x, n )  ( ( ( (unsigned int) x) >> n) | ( ( (unsigned int) x) << (32 - n) ) )
 
 /****************************************************************
 * Function: BiToW
@@ -210,6 +233,8 @@ void BigEndian( unsigned char src[], unsigned int bytelen, unsigned char des[] )
  *******************************************************************************/
 void SM3_init( SM3_STATE *md )
 {
+    memset(md, 0, sizeof(SM3_STATE));
+
     md->curlen  = md->length = 0;
     md->state[0]    = SM3_IVA;
     md->state[1]    = SM3_IVB;
@@ -287,10 +312,9 @@ void SM3_process( SM3_STATE * md, unsigned char *buf, int len )
  * Return: null
  * Others:
  *******************************************************************************/
-void SM3_done( SM3_STATE *md, unsigned char hash[] )
+void SM3_done( SM3_STATE *md, unsigned char hash[32] )
 {
     int     i;
-    unsigned char   tmp = 0;
 /* increase the bit length of the message */
     md->length += md->curlen << 3;
 /* append the '1' bit */
@@ -348,51 +372,10 @@ void SM3_done( SM3_STATE *md, unsigned char hash[] )
  * Return: null
  * Others:
  *******************************************************************************/
-void SM3_256( unsigned char buf[], int len, unsigned char hash[] )
+void SM3_256( unsigned char buf[], int len, unsigned char hash[32] )
 {
     SM3_STATE md;
     SM3_init( &md );
     SM3_process( &md, buf, len );
     SM3_done( &md, hash );
-}
-
-
-/******************************************************************************
- * Function: SM3_SelfTest
- * Description: test whether the SM3 calculation is correct by comparing
- * the hash result with the standard result
- * Calls: SM3_256
- * Called By:
- * Input: null
- * Output: null
- * Return: 0 //the SM3 operation is correct
- * 1 //the sm3 operation is wrong
- * Others:
- *******************************************************************************/
-int SM3_SelfTest()
-{
-    unsigned int    i       = 0, a = 1, b = 1;
-    unsigned char   Msg1[3]     = { 0x61, 0x62, 0x63 };
-    int     MsgLen1     = 3;
-    unsigned char   MsgHash1[32]    = { 0 };
-    unsigned char   StdHash1[32]    = { 0x66, 0xC7, 0xF0, 0xF4, 0x62, 0xEE, 0xED, 0xD9, 0xD1, 0xF2, 0xD4, 0x6B, 0xDC, 0x10, 0xE4, 0xE2,
-                        0x41,      0x67, 0xC4, 0x87, 0x5C, 0xF2, 0xF7, 0xA2, 0x29, 0x7D, 0xA0, 0x2B, 0x8F, 0x4B, 0xA8, 0xE0 };
-    unsigned char   Msg2[64] = { 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64,
-                     0x61,   0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64,
-                     0x61,   0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64,
-                     0x61,   0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64, 0x61, 0x62, 0x63, 0x64 };
-    int     MsgLen2     = 64;
-    unsigned char   MsgHash2[32]    = { 0 };
-    unsigned char   StdHash2[32]    = { 0xde, 0xbe, 0x9f, 0xf9, 0x22, 0x75, 0xb8, 0xa1, 0x38, 0x60, 0x48, 0x89, 0xc1, 0x8e, 0x5a, 0x4d,
-                        0x6f,      0xdb, 0x70, 0xe5, 0x38, 0x7e, 0x57, 0x65, 0x29, 0x3d, 0xcb, 0xa3, 0x9c, 0x0c, 0x57, 0x32 };
-    SM3_256( Msg1, MsgLen1, MsgHash1 );
-    SM3_256( Msg2, MsgLen2, MsgHash2 );
-    a   = memcmp( MsgHash1, StdHash1, SM3_len / 8 );
-    b   = memcmp( MsgHash2, StdHash2, SM3_len / 8 );
-    if ( (a == 0) && (b == 0) )
-    {
-        return(0);
-    }else  {
-        return(1);
-    }
 }
