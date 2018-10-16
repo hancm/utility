@@ -345,6 +345,7 @@ int SM4DecryptCBC(const std::string &encryptInput,
                   const char iv[16],
                   std::string &decryptOutput)
 {
+    decryptOutput.clear();
     decryptOutput.resize(encryptInput.size());
 
     sm4_context ctx;
