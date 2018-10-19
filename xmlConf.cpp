@@ -1,77 +1,120 @@
 ﻿#include <string>
-#include <map>
 #include <vector>
+#include <sstream>
 
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
 
+#include "MyLog.h"
 #include "xmlConf.h"
 
-namespace MyUtilityLib {
-
 /**
-* 解析XML获取获取所有节点信息
-* @param [IN] const char *pcXMLBuff             xml内容
-* @param [IN] IN const int iXMLLen              xml长度
-* @param [IN] const std::string &strRootnode    xml根节点，用于比较
-* @param [OUT] std::vector<TAG_XML_NODE_INFO_S> &oNodeInfoList  XML节点信息列表
-* @return int
-* - 成功返回     0
-* - 失败返回     各错误值
-* @Note
-*/
-int ParseXmlDateInfo(IN const char *pcXMLBuff, IN int iXMLLen,
-                     IN const std::string &strRootnode,
-                     OUT std::vector<TAG_XML_NODE_INFO_S> &oNodeInfoList)
+ * @brief 查找当前以及下个同级节点为XML_ELEMENT_NODE
+ * @param [IN] pstXmlSubnode
+ * @return xmlNodePtr
+ * @note
+ */
+static xmlNodePtr FindXmlElementNode(xmlNodePtr pstXmlSubnode)
 {
-    /* 内存解析方式 */
-    const xmlDocPtr pstDoc = xmlParseMemory(pcXMLBuff, iXMLLen);
-    if (NULL == pstDoc)
-    {
-        return -1;
-    }
-
-    /* 生成解析用的二叉树，获取根节点 */
-    const xmlNodePtr pstXmlRootnode = xmlDocGetRootElement(pstDoc);
-    if (NULL == pstXmlRootnode)
-    {
-        xmlFreeDoc(pstDoc);
-        return -1;
-    }
-
-    /* 根节点比较 */
-    if (0 != xmlStrncmp(pstXmlRootnode->name, (const xmlChar*)strRootnode.c_str(), strRootnode.size()))
-    {
-        xmlFreeDoc(pstDoc);
-        return -1;
-    }
-
-    /* 如果比对成功则取根节点的子节点，并找到元素节点 */
-    xmlNodePtr pstXmlSubnode = pstXmlRootnode->children;
-    while (NULL != pstXmlSubnode)
-    {
-        if (XML_ELEMENT_NODE == pstXmlSubnode->type)
-        {
+    while (NULL != pstXmlSubnode) {
+        if (XML_ELEMENT_NODE == pstXmlSubnode->type) {
             break;
         }
         pstXmlSubnode = pstXmlSubnode->next;
     }
-    if (NULL == pstXmlSubnode)
+
+    return pstXmlSubnode;
+}
+
+/**
+ * @brief 查找当前以及下个同级节点为指定名称的
+ * @param [IN] pstXmlSubnode
+ * @param [IN] xmlNodeName
+ * @return xmlNodePtr
+ * @note
+ */
+static xmlNodePtr FindXmlNodeByName(xmlNodePtr pstXmlSubnode, const std::string &xmlNodeName)
+{
+    while (NULL != pstXmlSubnode) {
+        /* 节点名称 */
+        std::string nodeName = (const char*)pstXmlSubnode->name;
+        if (nodeName == xmlNodeName)
+        {
+            break;
+        }
+
+        /* 获取下个元素子节点 */
+        pstXmlSubnode = FindXmlElementNode(pstXmlSubnode->next);
+    }
+
+    return pstXmlSubnode;
+}
+
+/**
+ * @brief 查找到指定路径的节点的子节点
+ * @param [IN] pstDoc
+ * @param [IN] nodePathList
+ * @return xmlNodePtr
+ * @note
+ */
+static xmlNodePtr FindChildXmlNodeByPath(const xmlDocPtr pstDoc,
+                                         const std::string &nodePath)
+{
+    // '/'分隔字符串解析
+    std::vector<std::string> nodePathList;
+    std::istringstream ss(nodePath);
+    for (std::string item; std::getline(ss, item, '/'); ) {
+        if (item.empty()) {
+            continue;
+        }
+        nodePathList.push_back(item);
+    }
+
+    /* 生成解析用的二叉树，获取根节点 */
+    const xmlNodePtr pstXmlRootnode = xmlDocGetRootElement(pstDoc);
+    if (NULL == pstXmlRootnode) {
+        return NULL;
+    }
+
+    xmlNodePtr xmlNextNode = pstXmlRootnode;
+    for (size_t i = 0; i < nodePathList.size(); ++i)
     {
-        xmlFreeDoc(pstDoc);
+        xmlNextNode = FindXmlNodeByName(xmlNextNode, nodePathList[i]);
+        if (NULL == xmlNextNode) {
+            LOG_ERROR("Can not find xml node: {}.", nodePathList[i]);
+            break;
+        }
+        xmlNextNode = xmlNextNode->children;
+    }
+
+    return xmlNextNode;
+}
+
+int ParseXmlDateInfo(IN const char *pcXMLBuff, IN int iXMLLen,
+                     IN const std::string &nodePath,
+                     OUT std::map<std::string, std::string> &oNodeInfoMap)
+{
+    //忽略空白字符，忽略text节点，否则解析将会把空白、回车等解析成text节点
+    xmlKeepBlanksDefault(0);
+
+    /* 内存解析方式 */
+    const xmlDocPtr pstDoc = xmlParseMemory(pcXMLBuff, iXMLLen);
+    if (NULL == pstDoc)
+    {
+        LOG_ERROR("Failed to parse xml.");
         return -1;
     }
 
-     /* 取所有子节点的内容 */
+    // 查找到指定路径的子节点
+    xmlNodePtr pstXmlSubnode = FindChildXmlNodeByPath(pstDoc, nodePath);
+    if (NULL == pstXmlSubnode) {
+        LOG_ERROR("Failed to find xml node by path: {}.", nodePath);
+        return -1;
+    }
+
+    /* 取所有同级节点的内容 */
     while(NULL != pstXmlSubnode)
     {
-        /**
-         * 根据map中存在的节点得到节点内容和属性
-         */
-
-        /* 节点值和属性列表 */
-        TAG_XML_NODE_INFO_S xmlNodeInfo;
-
         /**
          * 取节点内容
          */
@@ -83,47 +126,21 @@ int ParseXmlDateInfo(IN const char *pcXMLBuff, IN int iXMLLen,
         }
 
         /* 节点名称、节点内容 */
-        xmlNodeInfo.xmlNodeName = (const char*)pstXmlSubnode->name;
-        xmlNodeInfo.xmlNodeContent = (const char*)pcNodeContent;
+        std::string xmlNodeName = (const char*)pstXmlSubnode->name;
+        std::string xmlNodeContent = (const char*)pcNodeContent;
 
         /* 释放由xmlNodeGetContent获取的节点内容指针 */
         xmlFree((void*)pcNodeContent);
         pcNodeContent = NULL;
 
-        /**
-         * 获取节点属性值
-         */
-        /* 节点属性列表 */
-        xmlAttrPtr attrPtr = pstXmlSubnode->properties;
-        while (attrPtr != NULL)
-        {
-            xmlChar* szAttr = xmlGetProp(pstXmlSubnode, attrPtr->name);
-            if (NULL == szAttr)
-            {
-                xmlFreeDoc(pstDoc);
-                return -1;
-            }
-
-            xmlNodeInfo.propMap[(const char*)attrPtr->name] = (const char*)szAttr;
-            xmlFree(szAttr);
-            szAttr = NULL;
-
-            attrPtr = attrPtr->next;
-        }
-
         /* 插入节点信息 */
-        oNodeInfoList.push_back(xmlNodeInfo);
-
-        /* 获取下个元素子节点 */
-        pstXmlSubnode = pstXmlSubnode->next;
-        while (NULL != pstXmlSubnode)
+        if (!xmlNodeName.empty() && !xmlNodeContent.empty())
         {
-            if (XML_ELEMENT_NODE == pstXmlSubnode->type)
-            {
-                break;
-            }
-            pstXmlSubnode = pstXmlSubnode->next;
+            oNodeInfoMap[xmlNodeName] = xmlNodeContent;
         }
+
+        /* 获取同级下个元素节点 */
+        pstXmlSubnode = FindXmlElementNode(pstXmlSubnode->next);
     }
 
     /* 释放由xmlParseMemory申请的Doc指针 */
@@ -131,5 +148,3 @@ int ParseXmlDateInfo(IN const char *pcXMLBuff, IN int iXMLLen,
 
     return 0;
 }
-
-} /* End for namespace MyUtilityLib */
