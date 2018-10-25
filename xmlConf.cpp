@@ -134,7 +134,7 @@ int ParseXmlDateInfo(IN const char *pcXMLBuff, IN int iXMLLen,
         pcNodeContent = NULL;
 
         /* 插入节点信息 */
-        if (!xmlNodeName.empty() && !xmlNodeContent.empty())
+        if (!xmlNodeName.empty())
         {
             oNodeInfoMap[xmlNodeName] = xmlNodeContent;
         }
