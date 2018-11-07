@@ -27,6 +27,7 @@ public:
 
     std::size_t lease();
     bool try_lease(std::size_t & pos, int timeout);
+    bool try_pos_lease(std::size_t pos, int timeout);
     void give_back(std::size_t pos);
 
 private:

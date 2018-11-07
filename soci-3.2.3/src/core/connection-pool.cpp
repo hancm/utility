@@ -37,6 +37,15 @@ struct connection_pool::connection_pool_impl
         return false;
     }
 
+    bool is_free(std::size_t pos)
+    {
+        if (sessions_[pos].first)
+        {
+            return true;
+        }
+        return false;
+    }
+
     // by convention, first == true means the entry is free (not used)
     std::vector<std::pair<bool, session *> > sessions_;
     pthread_mutex_t mtx_;
@@ -142,6 +151,66 @@ bool connection_pool::try_lease(std::size_t & pos, int timeout)
             // wait with timeout
             cc = pthread_cond_timedwait(
                 &(pimpl_->cond_), &(pimpl_->mtx_), &tm);
+        }
+
+        if (cc == ETIMEDOUT)
+        {
+            break;
+        }
+    }
+
+    if (cc == 0)
+    {
+        pimpl_->sessions_[pos].first = false;
+    }
+
+    pthread_mutex_unlock(&(pimpl_->mtx_));
+
+    return cc == 0;
+}
+
+bool connection_pool::try_pos_lease(std::size_t pos, int timeout)
+{
+    if (pos >= pimpl_->sessions_.size())
+    {
+        throw soci_error("Invalid pool position");
+    }
+
+    struct timespec tm;
+    if (timeout >= 0)
+    {
+        // timeout is relative in milliseconds
+
+        struct timeval tmv;
+        gettimeofday(&tmv, NULL);
+
+        tm.tv_sec = tmv.tv_sec + timeout / 1000;
+        tm.tv_nsec = tmv.tv_usec * 1000 + (timeout % 1000) * 1000 * 1000;
+
+        if (tm.tv_nsec >= 1000 * 1000 * 1000)
+        {
+            ++tm.tv_sec;
+            tm.tv_nsec -= 1000 * 1000 * 1000;
+        }
+    }
+
+    int cc = pthread_mutex_lock(&(pimpl_->mtx_));
+    if (cc != 0)
+    {
+        throw soci_error("Synchronization error");
+    }
+
+    while (pimpl_->is_free(pos) == false)
+    {
+        if (timeout < 0)
+        {
+            // no timeout, allow unlimited blocking
+            cc = pthread_cond_wait(&(pimpl_->cond_), &(pimpl_->mtx_));
+        }
+        else
+        {
+            // wait with timeout
+            cc = pthread_cond_timedwait(&(pimpl_->cond_), &(pimpl_->mtx_), &tm);
         }
 
         if (cc == ETIMEDOUT)
