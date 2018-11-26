@@ -44,17 +44,17 @@
 class MyLog
 {
 public:
-    MyLog(const std::string &file_name) noexcept
+    MyLog(const std::string &file_name, const char *logName = MY_LOG_NAME) noexcept
     {
-        destroy();
-        init(file_name);
+//      destroy();
+        init(file_name, logName);
     }
 
     template <typename... Args>
-    static inline void trace(const char *format, const Args&... args) noexcept
+    static inline void trace(const char *logName, const char *format, const Args&... args) noexcept
     {
         try {
-            std::shared_ptr<spdlog::logger> logger = getLogger();
+            std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
                 logger->trace(format, args...);
             }
@@ -64,10 +64,10 @@ public:
     }
 
     template <typename... Args>
-    static inline void debug(const char *format, const Args&... args) noexcept
+    static inline void debug(const char *logName, const char *format, const Args&... args) noexcept
     {
         try {
-            std::shared_ptr<spdlog::logger> logger = getLogger();
+            std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
                 logger->debug(format, args...);
             }
@@ -77,10 +77,10 @@ public:
     }
 
     template <typename... Args>
-    static inline void info(const char *format, const Args&... args) noexcept
+    static inline void info(const char *logName, const char *format, const Args&... args) noexcept
     {
         try {
-            std::shared_ptr<spdlog::logger> logger = getLogger();
+            std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
                 logger->info(format, args...);
             }
@@ -90,10 +90,10 @@ public:
     }
 
     template <typename... Args>
-    static inline void warn(const char *format, const Args&... args) noexcept
+    static inline void warn(const char *logName, const char *format, const Args&... args) noexcept
     {
         try {
-            std::shared_ptr<spdlog::logger> logger = getLogger();
+            std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
                 logger->warn(format, args...);
             }
@@ -103,10 +103,10 @@ public:
     }
 
     template <typename... Args>
-    static inline void error(const char *format, const Args&... args) noexcept
+    static inline void error(const char *logName, const char *format, const Args&... args) noexcept
     {
         try {
-            std::shared_ptr<spdlog::logger> logger = getLogger();
+            std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
                 logger->error(format, args...);
             }
@@ -116,10 +116,10 @@ public:
     }
 
     template <typename... Args>
-    static inline void critical(const char *format, const Args&... args) noexcept
+    static inline void critical(const char *logName, const char *format, const Args&... args) noexcept
     {
         try {
-            std::shared_ptr<spdlog::logger> logger = getLogger();
+            std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
                 logger->critical(format, args...);
             }
@@ -133,10 +133,10 @@ private:
     MyLog& operator=(const MyLog&) = delete;
 
 private:
-    static inline void init(const std::string &file_name) noexcept
+    static inline void init(const std::string &file_name, const char *logName) noexcept
     {
         try {
-            if (file_name.empty() || getLogger()) {
+            if (file_name.empty() || getLogger(logName)) {
                 return;
             }
 
@@ -154,7 +154,7 @@ private:
             // rotating日志MyLog, 10M * 10个备份
             sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(file_name, 1024 * 1024 * 10, 10));
 
-            std::shared_ptr<spdlog::logger> logger = std::make_shared<spdlog::logger>(MY_LOG_NAME, begin(sinks), end(sinks));
+            std::shared_ptr<spdlog::logger> logger = std::make_shared<spdlog::logger>(logName, begin(sinks), end(sinks));
 
             // register日志，这是一个单例
             spdlog::register_logger(logger);
@@ -185,10 +185,10 @@ private:
         }
     }
 
-    static inline std::shared_ptr<spdlog::logger> getLogger() noexcept
+    static inline std::shared_ptr<spdlog::logger> getLogger(const char *logName) noexcept
     {
         try {
-            return spdlog::get(MY_LOG_NAME);
+            return spdlog::get(logName);
         } catch (...) {
             return nullptr;
         }
@@ -208,11 +208,19 @@ private:
                              .append("]<").append(__FUNCTION__).append("> - ").append(format).c_str())
 #endif
 
-#define LOG_TRACE(format, ...)      (MyLog::trace(FORMATTED(format), ##__VA_ARGS__))
-#define LOG_DEBUG(format, ...)      (MyLog::debug(FORMATTED(format), ##__VA_ARGS__))
-#define LOG_INFO(format, ...)      (MyLog::info(FORMATTED(format), ##__VA_ARGS__))
-#define LOG_WARN(format,...)      (MyLog::warn(FORMATTED(format), ##__VA_ARGS__))
-#define LOG_ERROR(format,...)     (MyLog::error(FORMATTED(format), ##__VA_ARGS__))
-#define LOG_SYS(format,...)       (MyLog::critical(FORMATTED(format), ##__VA_ARGS__))
+#define MYLOG_TRACE(__MYLOG_NAME__, format, ...)      (MyLog::trace(__MYLOG_NAME__, FORMATTED(format), ##__VA_ARGS__))
+#define MYLOG_DEBUG(__MYLOG_NAME__, format, ...)      (MyLog::debug(__MYLOG_NAME__, FORMATTED(format), ##__VA_ARGS__))
+#define MYLOG_INFO(__MYLOG_NAME__, format, ...)       (MyLog::info(__MYLOG_NAME__, FORMATTED(format), ##__VA_ARGS__))
+#define MYLOG_WARN(__MYLOG_NAME__, format,...)        (MyLog::warn(__MYLOG_NAME__, FORMATTED(format), ##__VA_ARGS__))
+#define MYLOG_ERROR(__MYLOG_NAME__, format,...)       (MyLog::error(__MYLOG_NAME__, FORMATTED(format), ##__VA_ARGS__))
+#define MYLOG_SYS(__MYLOG_NAME__, format,...)         (MyLog::critical(__MYLOG_NAME__, FORMATTED(format), ##__VA_ARGS__))
+
+// 默认的日志: MyLog
+#define LOG_TRACE(format, ...)      (MyLog::trace(MY_LOG_NAME, FORMATTED(format), ##__VA_ARGS__))
+#define LOG_DEBUG(format, ...)      (MyLog::debug(MY_LOG_NAME, FORMATTED(format), ##__VA_ARGS__))
+#define LOG_INFO(format, ...)      (MyLog::info(MY_LOG_NAME, FORMATTED(format), ##__VA_ARGS__))
+#define LOG_WARN(format,...)      (MyLog::warn(MY_LOG_NAME, FORMATTED(format), ##__VA_ARGS__))
+#define LOG_ERROR(format,...)     (MyLog::error(MY_LOG_NAME, FORMATTED(format), ##__VA_ARGS__))
+#define LOG_SYS(format,...)       (MyLog::critical(MY_LOG_NAME, FORMATTED(format), ##__VA_ARGS__))
 
 #endif /* __MYLOG_H__ */
