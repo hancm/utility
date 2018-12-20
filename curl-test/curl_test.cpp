@@ -7,6 +7,7 @@
 #include <string>
 #include <cstring>
 #include <sys/stat.h>
+#include <stdlib.h> 
 
 #define IN
 #define INOUT
@@ -105,11 +106,18 @@ static size_t WriteCallback(IN char *pRecv, IN size_t iBlockNum, IN size_t iBloc
 
 int main(int argc , char **argv)
 {
-	printf("a.out ip tsq_path\n");
+	printf("a.out ip tsq_path count\n");
 	
 	std::string fileBuff;
 	ReadFile(argv[2], fileBuff);
+
+	int count = 1;
+	if (4 == argc) {
+		count = atoi(argv[3]);
+	}
 	
+for (int i = 0; i < count; ++i) 
+{
     /**
      * 设置全局libcurl环境信息
      * 进程有且只能调用一次，非线程安全的。
@@ -118,7 +126,7 @@ int main(int argc , char **argv)
      * CURL_GLOBAL_ALL: 一般是好的设置方式，初始化SSL、WIN32
      */
     (void)curl_global_init(CURL_GLOBAL_ALL);
-
+	
     /**
      * libcurl的同步阻塞方式
      * 返回的easy handle只能在同一个线程中被调用，不能在多个线程使用。
@@ -192,6 +200,6 @@ int main(int argc , char **argv)
 
     /* 清理全局libcurl环境信息 */
     curl_global_cleanup();
-
+} // for
     return 0;
 }

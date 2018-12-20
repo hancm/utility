@@ -1,2 +1,2 @@
 all:
-	g++ -g -Wall -lcurl curl_test.cpp
+	g++ -Wall -O3 -DNDEBUG -lcurl curl_test.cpp
