@@ -16,8 +16,6 @@
 using std::cout;
 using std::endl;
 
-static std::string g_strRecvbuf;
-
 inline size_t GetFileSize(const char *filePath)
 {
     struct stat fileStat = {0};
@@ -91,22 +89,23 @@ static int WriteFileInfo(const std::string &strFilePath, const char *fileBuf, si
 static size_t WriteCallback(IN char *pRecv, IN size_t iBlockNum, IN size_t iBlockSize, IN void *pUserData)
 {
     /* 用户参数 */
-    char *pData = (char*)pUserData;
-    cout << pData << endl;
+    std::string &userData = *(std::string*)pUserData;
+    cout << userData << endl;
 
     /* 数据大小 */
     size_t iDataLen = iBlockNum * iBlockSize;
-    g_strRecvbuf.append(pRecv, iDataLen);
+    userData.append(pRecv, iDataLen);
 	
-	cout << "Block num: " << iBlockNum << " Block size: " << iBlockSize << " Total size: " << g_strRecvbuf.size() << endl;
-	
-	WriteFileInfo("test_tsa.tsa", g_strRecvbuf.c_str(), g_strRecvbuf.size());
+	cout << "Block num: " << iBlockNum << " Block size: " << iBlockSize << " Total size: " << userData.size() << endl;
     return iBlockNum * iBlockSize;
 }
 
 int main(int argc , char **argv)
 {
-	printf("a.out ip tsq_path count\n");
+	if (3 != argc && 4 != argc) {
+		printf("Usage: a.out ip tsq_path count\n");
+		return -1;
+	}
 	
 	std::string fileBuff;
 	ReadFile(argv[2], fileBuff);
@@ -173,7 +172,8 @@ for (int i = 0; i < count; ++i)
      * 给回调函数传递用户参数
      * 可以通过修改参数向不同的FILE*打印数据
      */
-    //(void)curl_easy_setopt(pCurlHandle, CURLOPT_WRITEDATA, "hancm");
+	 std::string tsaInfo;
+    (void)curl_easy_setopt(pCurlHandle, CURLOPT_WRITEDATA, &tsaInfo);
 
     /**
      * 调试用：输出所有可能的错误信息
@@ -191,6 +191,8 @@ for (int i = 0; i < count; ++i)
     {
         fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(curlRet));
     }
+	
+	WriteFileInfo("test_tsa.tsa", tsaInfo.c_str(), tsaInfo.size());
 
 	/* free the custom headers */
     curl_slist_free_all(chunk);
