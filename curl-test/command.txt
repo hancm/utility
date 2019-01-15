@@ -1,0 +1,13 @@
+
+#query
+openssl ts -cert -query -data README.rst -out README.rst.tsq
+
+#reply
+curl http://localhost:3030 -H 'Content-Type: application/timestamp-query' -f -g --data-binary @./README.rst.tsq -o README.rst.tsr
+
+#verify
+openssl ts -verify -data README.rst -in README.rst.tsr  -CAfile /etc/pki/uts/tsaca.pem
+
+cat /etc/pki/uts/tsaca.pem
+openssl ts -reply -in README.rst.tsr -text
+
