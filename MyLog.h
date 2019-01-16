@@ -8,7 +8,7 @@
 
 // 0：rotating日志
 // 1：rotating日志 + 增加控制台日志
-#define _MYLOG_SINK_    0
+#define _MYLOG_SINK_    1
 
 // 0: TRACE级别
 // 1：ERROR级别
@@ -38,7 +38,7 @@
 // 引入log头文件
 #include "spdlog/spdlog.h"
 
-#define MY_LOG_NAME ("MyLog")
+#define MY_LOG_NAME ("__MyLog__")
 
 // spdlog封装
 class MyLog
@@ -46,7 +46,6 @@ class MyLog
 public:
     MyLog(const std::string &file_name, const char *logName = MY_LOG_NAME) noexcept
     {
-//      destroy();
         init(file_name, logName);
     }
 
