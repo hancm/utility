@@ -55,6 +55,7 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
+                logger->set_log_err_info(format);
                 logger->trace(format, args...);
             }
         } catch (...) {
@@ -68,6 +69,7 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
+                logger->set_log_err_info(format);
                 logger->debug(format, args...);
             }
         } catch (...) {
@@ -81,6 +83,7 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
+                logger->set_log_err_info(format);
                 logger->info(format, args...);
             }
         } catch (...) {
@@ -94,6 +97,7 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
+                logger->set_log_err_info(format);
                 logger->warn(format, args...);
             }
         } catch (...) {
@@ -107,6 +111,7 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
+                logger->set_log_err_info(format);
                 logger->error(format, args...);
             }
         } catch (...) {
@@ -120,6 +125,7 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
+                logger->set_log_err_info(format);
                 logger->critical(format, args...);
             }
         } catch (...) {

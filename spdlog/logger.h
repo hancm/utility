@@ -82,6 +82,8 @@ public:
     virtual void set_error_handler(log_err_handler);
     virtual log_err_handler error_handler();
 
+    void set_log_err_info(const std::string &log_err_info) { _log_err_info = log_err_info; }
+
 protected:
     virtual void _sink_it(details::log_msg&);
     virtual void _set_pattern(const std::string&, pattern_time_type);
@@ -104,6 +106,9 @@ protected:
     log_err_handler _err_handler;
     std::atomic<time_t> _last_err_time;
     std::atomic<size_t> _msg_counter;
+
+private:
+    std::string _log_err_info;
 };
 }
 
