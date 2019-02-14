@@ -26,23 +26,23 @@ encode_flush (
 
 int main(void)
 {
-	char* pw = "123hancm456";
-	unsigned char ptxt[9] = "ha韩长";
-	unsigned char ctxt[9] = {0};
+    char* pw = "123hancm456";
+    unsigned char ptxt[9] = "ha韩长";
+    unsigned char ctxt[9] = {0};
 {
-	/*ICE_KEY *ice = ice_key_create();
-	ice_key_set(ice, (unsigned char*)pw);
-	
-	ice_key_encrypt(ice, ptxt, ctxt);
-	std::cout << "encrypt: " << ctxt << std::endl;
-	
-	ice_key_decrypt (ice, ctxt, ptxt);
-	std::cout << "decrypt: " << ptxt << std::endl;
-	
-	ice_key_destroy (ice);
-	*/
+    /*ICE_KEY *ice = ice_key_create();
+    ice_key_set(ice, (unsigned char*)pw);
+
+    ice_key_encrypt(ice, ptxt, ctxt);
+    std::cout << "encrypt: " << ctxt << std::endl;
+
+    ice_key_decrypt (ice, ctxt, ptxt);
+    std::cout << "decrypt: " << ptxt << std::endl;
+
+    ice_key_destroy (ice);
+    */
 {
-	FILE *inf = stdin;
+    FILE *inf = stdin;
     FILE *outf = stdout;
     std::istringstream infile_stream;
 //  infile_stream.str("%%EOF");
@@ -50,7 +50,7 @@ int main(void)
     std::ostringstream outfile_stream;
 
     encode_init();
-    encode_bit(0, inf, outf, infile_stream, outfile_stream);
+    encode_bit(1, inf, outf, infile_stream, outfile_stream);
 
     std::string encodeBuffer;
     encode_flush(inf, outf, infile_stream, outfile_stream, encodeBuffer);
@@ -62,5 +62,5 @@ int main(void)
     of.write(encodeBuffer.c_str(), encodeBuffer.size());
 }
 }
-	return 0;
+    return 0;
 }

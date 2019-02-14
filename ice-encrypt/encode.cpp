@@ -75,56 +75,58 @@ wsgets (
     int         text_encode_mode = 1,
     char        splite_char = '\r'
 ) {
-    // 指定单词模式
-    int flag = 0;
-    std::string strSplite;
-    if (1 == text_encode_mode || 2 == text_encode_mode) {
-        while (infile_stream.good()) {
-            strSplite.clear();
-            std::getline(infile_stream, strSplite, splite_char);
-            std::string strSource;
-            strSource = strSplite + splite_char;              // getline不会读取最后的换行符
+    return NULL;
 
-            if (strSplite != filter_word_string) {
-                // 没找到需要的字符串
-                // 把原字符串输出到文件
-                if (!outfile_stream.write(strSource.c_str(), strSource.size())) {
-                    fprintf(stderr, "Failed to write %s to outfile.", strSource.c_str());
-                    return NULL;
-                }
-                continue;
-            }
-
-            /**
-             * 目前设计pdf走不到这里
-             */
-            fprintf(stderr, "find@: ");
-            for (size_t i = 0; i < strSource.size(); ++i) {
-                if ('\r' == strSource[i]) {
-                    fprintf(stderr, "\\r");
-                } else if ('\n' == strSource[i]) {
-                    fprintf(stderr, "\\n");
-                } else {
-                    fprintf(stderr, "%c", strSource[i]);
-                }
-            }
-            fprintf(stderr, "\n");
-
-            memset(buf, 0, size);
-            strncpy(buf, filter_word_string, size - 1);
-            wsremove(buf);
-            flag = 1;
-            break;
-        }
-    } else {
-        std::getline(infile_stream, strSplite);
-        memset(buf, 0, size);
-        strncpy(buf, strSplite.c_str(), size - 1);
-        wsremove(buf);
-        flag = 1;
-    }
-
-    return flag ? buf : NULL;
+//  // 指定单词模式
+//  int flag = 0;
+//  std::string strSplite;
+//  if (1 == text_encode_mode || 2 == text_encode_mode) {
+//      while (infile_stream.good()) {
+//          strSplite.clear();
+//          std::getline(infile_stream, strSplite, splite_char);
+//          std::string strSource;
+//          strSource = strSplite + splite_char;              // getline不会读取最后的换行符
+//
+//          if (strSplite != filter_word_string) {
+//              // 没找到需要的字符串
+//              // 把原字符串输出到文件
+//              if (!outfile_stream.write(strSource.c_str(), strSource.size())) {
+//                  fprintf(stderr, "Failed to write %s to outfile.", strSource.c_str());
+//                  return NULL;
+//              }
+//              continue;
+//          }
+//
+//          /**
+//           * 目前设计pdf走不到这里
+//           */
+//          fprintf(stderr, "find@: ");
+//          for (size_t i = 0; i < strSource.size(); ++i) {
+//              if ('\r' == strSource[i]) {
+//                  fprintf(stderr, "\\r");
+//              } else if ('\n' == strSource[i]) {
+//                  fprintf(stderr, "\\n");
+//              } else {
+//                  fprintf(stderr, "%c", strSource[i]);
+//              }
+//          }
+//          fprintf(stderr, "\n");
+//
+//          memset(buf, 0, size);
+//          strncpy(buf, filter_word_string, size - 1);
+//          wsremove(buf);
+//          flag = 1;
+//          break;
+//      }
+//  } else {
+//      std::getline(infile_stream, strSplite);
+//      memset(buf, 0, size);
+//      strncpy(buf, strSplite.c_str(), size - 1);
+//      wsremove(buf);
+//      flag = 1;
+//  }
+//
+//  return flag ? buf : NULL;
 }
 
 
@@ -139,21 +141,13 @@ wsputs (
     int         size,
     FILE        *fp,
     std::ostringstream &outfile_stream,
-    char    splite_char = '\n'
+    char    splite_char = '\r'
 ) {
-//  int     len = strlen (buf);
-//
-//  buf[len++] = '\n';
-//  if (fwrite (buf, sizeof (char), len, fp) != len) {
-//      perror ("Text output");
+    buf[size++] = splite_char;
+//  if (!outfile_stream.write(buf, size)) {
+//      fprintf(stderr, "Error: failed to wsputs write.\n");
 //      return (FALSE);
 //  }
-
-    buf[size++] = splite_char;
-    if (!outfile_stream.write(buf, size)) {
-        fprintf(stderr, "Error: failed to wsputs write.\n");
-        return (FALSE);
-    }
 
     return (TRUE);
 }
@@ -192,7 +186,6 @@ whitespace_storage (
     *n_lo += n;
 }
 
-
 /*
  * Load the encode buffer.
  * If there is no text to read, make it empty.
@@ -205,8 +198,6 @@ encode_buffer_load (
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream
 ) {
-    int     i;
-
     if (wsgets (encode_buffer, sizeof(encode_buffer), fp, infile_stream, outfile_stream) == NULL) {
         encode_buffer[0] = '\0';
         encode_lines_extra++;
@@ -215,7 +206,7 @@ encode_buffer_load (
     encode_buffer_length = strlen (encode_buffer);
 
     encode_buffer_column = 0;
-    for (i=0; encode_buffer[i] != '\0'; i++) {
+    for (int i=0; encode_buffer[i] != '\0'; i++) {
         if (encode_buffer[i] == '\t') {
             encode_buffer_column = tabpos (encode_buffer_column);
         } else {
@@ -227,7 +218,6 @@ encode_buffer_load (
     encode_needs_tab = FALSE;
 }
 
-
 /*
  * Append whitespace to the loaded buffer, if there is room.
  */
@@ -236,7 +226,7 @@ static BOOL
 encode_append_whitespace (
     int     nsp
 ) {
-    int     col = encode_buffer_column;
+    int col = encode_buffer_column;
 
     if (encode_needs_tab) {
         col = tabpos (col);
@@ -287,12 +277,11 @@ encode_write_value (
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream
 ) {
-    int     nspc;
-
     if (!encode_buffer_loaded) {
         encode_buffer_load (inf, outf, infile_stream, outfile_stream);
     }
 
+    // 加密空白以Tab开头
     if (!encode_first_tab) {                                                /* Tab shows start of data */
         while (tabpos (encode_buffer_column) >= line_length) {
             if (!wsputs (encode_buffer, strlen(encode_buffer), outf, outfile_stream)) {
@@ -307,8 +296,8 @@ encode_write_value (
         encode_first_tab = TRUE;
     }
 
-            /* Reverse the bit ordering */
-    nspc = ((val & 1) << 2) | (val & 2) | ((val & 4) >> 2);
+    /* Reverse the bit ordering */
+    int nspc = ((val & 1) << 2) | (val & 2) | ((val & 4) >> 2);
 
     while (!encode_append_whitespace (nspc)) {
         if (!wsputs (encode_buffer, strlen(encode_buffer), outf, outfile_stream)) {
@@ -337,24 +326,26 @@ encode_write_flush (
     std::ostringstream &outfile_stream,
     char splite_char = '\r'
 ) {
-    unsigned long   n_lo = 0, n_hi = 0;
+    unsigned long n_lo = 0;
+    unsigned long n_hi = 0;
 
     if (encode_buffer_loaded) {
-        if (!wsputs(encode_buffer, strlen(encode_buffer), outf, outfile_stream))
-        return (FALSE);
+        if (!wsputs(encode_buffer, strlen(encode_buffer), outf, outfile_stream)) {
+            return (FALSE);
+        }
         encode_buffer_loaded = FALSE;
         encode_buffer_length = 0;
         encode_buffer_column = 0;
     }
 
-    std::string str;
-    while (std::getline(infile_stream, str, splite_char)) {
-        str += splite_char;
-        whitespace_storage (str.c_str(), &n_lo, &n_hi);
-
-        if (!outfile_stream.write(/*tmp_buf, infile_stream.gcount()*/str.c_str(), str.size()))
-            return (FALSE);
-    }
+//  std::string str;
+//  while (std::getline(infile_stream, str, splite_char)) {
+//      str += splite_char;
+//      whitespace_storage (str.c_str(), &n_lo, &n_hi);
+//
+//      if (!outfile_stream.write(/*tmp_buf, infile_stream.gcount()*/str.c_str(), str.size()))
+//          return (FALSE);
+//  }
 
     encode_bits_available += (n_lo + n_hi) / 2;
 
