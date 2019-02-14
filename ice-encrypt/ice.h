@@ -20,10 +20,10 @@
 
 typedef struct ice_key_struct ICE_KEY;
 
-extern ICE_KEY *ice_key_create (int n);
+extern ICE_KEY *ice_key_create (int n = 1);
 extern void ice_key_destroy (ICE_KEY *ik);
 extern void ice_key_set (ICE_KEY *ik, const unsigned char *k);
-extern void ice_key_encrypt (const ICE_KEY *ik, const unsigned char *ptxt, unsigned char *ctxt);
-extern void ice_key_decrypt (const ICE_KEY *ik, const unsigned char *ctxt, unsigned char *ptxt);
+extern void ice_key_encrypt (const ICE_KEY *ik, const unsigned char ptxt[8], unsigned char ctxt[8]);
+extern void ice_key_decrypt (const ICE_KEY *ik, const unsigned char ctxt[8], unsigned char ptxt[8]);
 
 #endif
