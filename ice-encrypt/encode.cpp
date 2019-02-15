@@ -144,10 +144,10 @@ wsputs (
     char    splite_char = '\r'
 ) {
     buf[size++] = splite_char;
-//  if (!outfile_stream.write(buf, size)) {
-//      fprintf(stderr, "Error: failed to wsputs write.\n");
-//      return (FALSE);
-//  }
+    if (!outfile_stream.write(buf, size)) {
+        fprintf(stderr, "Error: failed to wsputs write.\n");
+        return (FALSE);
+    }
 
     return (TRUE);
 }
@@ -449,156 +449,205 @@ encode_flush (
     return (TRUE);
 }
 
+static int  output_bit_count = 0;
+static int  output_value = 0;
+
+static BOOL
+output_bit (
+    int     bit,
+    FILE        *outf,
+    std::ostringstream &outfile_stream
+) {
+    output_value = (output_value << 1) | bit;
+    std::cout << "output value: " << output_value << std::endl;
+    if (++output_bit_count == 8) {
+        std::cout << "output value2: " << output_value << std::endl;
+        outfile_stream << (char)output_value;
+//      if (fputc (output_value, outf) == EOF) {
+//          perror ("Output file");
+//          return (FALSE);
+//      }
+
+        output_value = 0;
+        output_bit_count = 0;
+    }
+
+    return (TRUE);
+}
+
 
 /*
  * Decode the space count into actual bits.
  */
 
-//static BOOL
-//decode_bits (
-//    int     spc,
-//    FILE        *outf
-//) {
-//    int     b1 = 0, b2 = 0, b3 = 0;
-//
-//    if (spc > 7) {
-//        fprintf (stderr, "Illegal encoding of %d spaces\n", spc);
-//        return (FALSE);
-//    }
-//
-//    if ((spc & 1) != 0)
-//        b1 = 1;
-//    if ((spc & 2) != 0)
-//        b2 = 1;
-//    if ((spc & 4) != 0)
-//        b3 = 1;
-//
-//    if (!decrypt_bit (b1, outf))
-//        return (FALSE);
-//    if (!decrypt_bit (b2, outf))
-//        return (FALSE);
-//    if (!decrypt_bit (b3, outf))
-//        return (FALSE);
-//
-//    return (TRUE);
-//}
+static BOOL
+decode_bits (
+    int     spc,
+    FILE        *outf,
+    std::ostringstream &outfile_stream
+) {
+    int b1 = 0, b2 = 0, b3 = 0;
+
+    if (spc > 7) {
+        fprintf (stderr, "Illegal encoding of %d spaces\n", spc);
+        return (FALSE);
+    }
+
+    if ((spc & 1) != 0) {
+        b1 = 1;
+    }
+    if ((spc & 2) != 0) {
+        b2 = 1;
+    }
+    if ((spc & 4) != 0) {
+        b3 = 1;
+    }
+
+    if (!output_bit (b1, outf, outfile_stream)) {
+        return (FALSE);
+    }
+    if (!output_bit (b2, outf, outfile_stream)) {
+        return (FALSE);
+    }
+    if (!output_bit (b3, outf, outfile_stream)) {
+        return (FALSE);
+    }
+
+//  if (!decrypt_bit (b1, outf)) {
+//      return (FALSE);
+//  }
+//  if (!decrypt_bit (b2, outf)) {
+//      return (FALSE);
+//  }
+//  if (!decrypt_bit (b3, outf)) {
+//      return (FALSE);
+//  }
+
+    return (TRUE);
+}
 
 
 /*
  * Decode the whitespace contained in the string.
  */
 
-//static BOOL
-//decode_whitespace (
-//    const char  *s,
-//    FILE        *outf
-//) {
-//    int     spc = 0;
-//
-//    for (;; s++) {
-//        if (*s == ' ') {
-//        spc++;
-//        } else if (*s == '\t') {
-//        if (!decode_bits (spc, outf))
-//            return (FALSE);
-//        spc = 0;
-//        } else if (*s == '\0') {
-//        if (spc > 0 && !decode_bits (spc, outf))
-//            return (FALSE);
-//        return (TRUE);
-//        }
-//    }
-//}
+static BOOL
+decode_whitespace (
+    const char  *s,
+    FILE        *outf,
+    std::ostringstream &outfile_stream
+) {
+    int     spc = 0;
+    std::cout << "s: " << s << std::endl;
+    for (;; s++) {
+        if (*s == ' ') {
+            spc++;
+        } else if (*s == '\t') {
+            if (!decode_bits (spc, outf, outfile_stream)) {
+                return (FALSE);
+            }
+            spc = 0;
+        } else if (*s == '\0') {
+            if (spc > 0 && !decode_bits (spc, outf, outfile_stream)) {
+                return (FALSE);
+            }
+            return (TRUE);
+        }
+    }
+}
 
 /*
  * Extract a message from the input stream.
  */
 
-//BOOL
-//message_extract (
-//    FILE        *inf,
-//    FILE        *outf,
-//    std::istringstream &infile_stream,
-//    std::ostringstream &outfile_stream,
-//    int     text_encode_mode = 1,
-//    char splite_char = '\r'
-//) {
-//    BOOL        start_tab_found = FALSE;
+BOOL
+message_extract (
+    FILE        *inf,
+    FILE        *outf,
+    std::istringstream &infile_stream,
+    std::ostringstream &outfile_stream,
+    int     text_encode_mode = 1,
+    char splite_char = '\r'
+) {
+    BOOL start_tab_found = FALSE;
+
+    //decrypt_init ();
+
+    /**
+     * 先找到所有需要解码的数据
+     */
+    std::vector<std::string> vecDecodeString;
+    std::string strSplite;
+    bool bFindEOF = false;
+    while (std::getline(infile_stream, strSplite, splite_char)) {
+        std::cout << "Splite size: " << strSplite.size() << std::endl;
+//      if (1== text_encode_mode) {
+//          // PDF模式添加密文到文件末尾
 //
-//    decrypt_init ();
+//          // 上次查询找到了EOF
+//          if (bFindEOF) {
+//              if (std::string::npos != strSplite.find_first_not_of(" \t\n\r")) {
+//                  // 出现字符，找到结尾
+//                  bFindEOF = false;
+//                  continue;
+//              } else if (std::string::npos != strSplite.find("\t")) {
+//                  vecDecodeString.push_back(strSplite);
+//              }
+//          }
 //
-//    /**
-//     * 先找到所有需要解码的数据
-//     */
-//    std::vector<std::string> vecDecodeString;
-//    std::string strSplite;
-//    bool bFindEOF = false;
-////  bool bEndFindEOF = false;
-//    while (std::getline(infile_stream, strSplite, splite_char)) {
-//        if (1== text_encode_mode) {
-//            // PDF模式添加密文到文件末尾
-//
-//            // 上次查询找到了EOF
-//            if (bFindEOF) {
-//                if (std::string::npos != strSplite.find_first_not_of(" \t\n\r")) {
-//                    // 出现字符，找到结尾
-//                    bFindEOF = false;
-//                    continue;
-//                } else if (std::string::npos != strSplite.find("\t")) {
-//                    vecDecodeString.push_back(strSplite);
-//                }
-//            }
-//
-//            if (std::string::npos != strSplite.find("%%EOF")) {
-//                bFindEOF = true;
-//            }
-//        } else {
-//            // 普通text模式
-//            vecDecodeString.push_back(strSplite);
-//        }
-//    }
-//
-////  fprintf(stderr, "Decode string size: %d\n", vecDecodeString.size());
-//
-//    /**
-//     * 解码相应数据
-//     */
-//    for (size_t i = 0; i < vecDecodeString.size(); ++i) {
-//        std::string &strDecodeTmp = vecDecodeString[i];
-////      fprintf(stderr, "extract: %s, size: %d\n", strDecodeTmp.c_str(), strDecodeTmp.size());
-//
-//        char    *s, *last_ws = NULL;
-//        for (s = (char*)strDecodeTmp.c_str(); *s != '\0' && *s != '\n' && *s != '\r'; s++) {
-//        if (*s != ' ' && *s != '\t')
-//            last_ws = NULL;
-//        else if (last_ws == NULL)
-//            last_ws = s;
-//        }
-//
-//        if (*s == '\n' || *s == '\r')
-//        *s = '\0';
-//
-//        if (last_ws == NULL)
-//        continue;
-//
-//        if (!start_tab_found && *last_ws == ' ')
-//        continue;
-//
-//        if (!start_tab_found && *last_ws == '\t') {
-//        start_tab_found = TRUE;
-//        last_ws++;
-//        if (*last_ws == '\0')
-//            continue;
-//        }
-//
-//        if (!decode_whitespace (last_ws, outf)) {
-//            fprintf(stderr, "Failed to decode whitespace.\n");
-//            return (FALSE);
-//        }
-//    }
-//
-//    return (decrypt_flush (outf));
-//}
+//          if (std::string::npos != strSplite.find("%%EOF")) {
+//              bFindEOF = true;
+//          }
+//      } else {
+            // 普通text模式
+            vecDecodeString.push_back(strSplite);
+//      }
+    }
+
+    /**
+     * 解码相应数据
+     */
+    for (size_t i = 0; i < vecDecodeString.size(); ++i) {
+        std::string &strDecodeTmp = vecDecodeString[i];
+
+        char *s = NULL;
+        char *last_ws = NULL;
+        for (s = (char*)strDecodeTmp.c_str(); *s != '\0' && *s != '\n' && *s != '\r'; s++) {
+            if (*s != ' ' && *s != '\t') {
+                last_ws = NULL;
+            } else if (last_ws == NULL) {
+                last_ws = s;
+            }
+        }
+
+        if (*s == '\n' || *s == '\r') {
+            *s = '\0';
+        }
+
+        if (last_ws == NULL) {
+            continue;
+        }
+
+        if (!start_tab_found && *last_ws == ' ') {
+            continue;
+        }
+
+        if (!start_tab_found && *last_ws == '\t') {
+            start_tab_found = TRUE;
+            last_ws++;
+            if (*last_ws == '\0') {
+                continue;
+            }
+        }
+
+        if (!decode_whitespace (last_ws, outf, outfile_stream)) {
+            fprintf(stderr, "Failed to decode whitespace.\n");
+            return (FALSE);
+        }
+    }
+
+    return true;//(decrypt_flush (outf));
+}
 
 
 /*
