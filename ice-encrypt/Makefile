@@ -1,5 +1,5 @@
 test:
-	g++ -g -Wall -O0 -std=c++11 ice.cpp encode.cpp ice_main.cpp
+	g++ -g -Wall -O0 -std=c++11 ice.cpp encode.cpp ice_main.cpp -o $@
 	
 .PHONY: clean
 clean:

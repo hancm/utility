@@ -68,7 +68,6 @@ static char *
 wsgets (
     char        *buf,
     int         size,
-    FILE        *fp,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream,
     char        *filter_word_string = "%%EOF%%EOF",
@@ -139,7 +138,6 @@ static BOOL
 wsputs (
     char        *buf,
     int         size,
-    FILE        *fp,
     std::ostringstream &outfile_stream,
     char    splite_char = '\r'
 ) {
@@ -193,12 +191,10 @@ whitespace_storage (
 
 static void
 encode_buffer_load (
-    FILE        *fp,
-    FILE        *outf,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream
 ) {
-    if (wsgets (encode_buffer, sizeof(encode_buffer), fp, infile_stream, outfile_stream) == NULL) {
+    if (wsgets (encode_buffer, sizeof(encode_buffer), infile_stream, outfile_stream) == NULL) {
         encode_buffer[0] = '\0';
         encode_lines_extra++;
     }
@@ -272,22 +268,20 @@ encode_append_whitespace (
 static BOOL
 encode_write_value (
     int     val,
-    FILE        *inf,
-    FILE        *outf,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream
 ) {
     if (!encode_buffer_loaded) {
-        encode_buffer_load (inf, outf, infile_stream, outfile_stream);
+        encode_buffer_load (infile_stream, outfile_stream);
     }
 
     // 加密空白以Tab开头
     if (!encode_first_tab) {                                                /* Tab shows start of data */
         while (tabpos (encode_buffer_column) >= line_length) {
-            if (!wsputs (encode_buffer, strlen(encode_buffer), outf, outfile_stream)) {
+            if (!wsputs (encode_buffer, strlen(encode_buffer), outfile_stream)) {
                 return (FALSE);
             }
-            encode_buffer_load (inf, outf, infile_stream, outfile_stream);
+            encode_buffer_load (infile_stream, outfile_stream);
         }
 
         encode_buffer[encode_buffer_length++] = '\t';
@@ -300,10 +294,10 @@ encode_write_value (
     int nspc = ((val & 1) << 2) | (val & 2) | ((val & 4) >> 2);
 
     while (!encode_append_whitespace (nspc)) {
-        if (!wsputs (encode_buffer, strlen(encode_buffer), outf, outfile_stream)) {
+        if (!wsputs (encode_buffer, strlen(encode_buffer), outfile_stream)) {
             return (FALSE);
         }
-        encode_buffer_load (inf, outf, infile_stream, outfile_stream);
+        encode_buffer_load (infile_stream, outfile_stream);
     }
 
     if (encode_lines_extra == 0) {
@@ -320,8 +314,6 @@ encode_write_value (
 
 static BOOL
 encode_write_flush (
-    FILE        *inf,
-    FILE        *outf,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream,
     char splite_char = '\r'
@@ -330,7 +322,7 @@ encode_write_flush (
     unsigned long n_hi = 0;
 
     if (encode_buffer_loaded) {
-        if (!wsputs(encode_buffer, strlen(encode_buffer), outf, outfile_stream)) {
+        if (!wsputs(encode_buffer, strlen(encode_buffer), outfile_stream)) {
             return (FALSE);
         }
         encode_buffer_loaded = FALSE;
@@ -382,8 +374,6 @@ encode_init (void)
 BOOL
 encode_bit (
     int     bit,
-    FILE        *inf,
-    FILE        *outf,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream
 ) {
@@ -391,7 +381,7 @@ encode_bit (
     encode_bits_used++;
 
     if (++encode_bit_count == 3) {
-        if (!encode_write_value (encode_value, inf, outf, infile_stream, outfile_stream)) {
+        if (!encode_write_value (encode_value, infile_stream, outfile_stream)) {
             return (FALSE);
         }
 
@@ -409,8 +399,6 @@ encode_bit (
 
 BOOL
 encode_flush (
-    FILE        *inf,
-    FILE        *outf,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream,
     std::string &encodeBuffer
@@ -423,12 +411,12 @@ encode_flush (
             encode_bit_count++;
         }
 
-        if (!encode_write_value (encode_value, inf, outf, infile_stream, outfile_stream)) {
+        if (!encode_write_value (encode_value, infile_stream, outfile_stream)) {
             return (FALSE);
         }
     }
 
-    if (!encode_write_flush (inf, outf, infile_stream, outfile_stream)) {
+    if (!encode_write_flush (infile_stream, outfile_stream)) {
         return (FALSE);
     }
 
@@ -455,7 +443,6 @@ static int  output_value = 0;
 static BOOL
 output_bit (
     int     bit,
-    FILE        *outf,
     std::ostringstream &outfile_stream
 ) {
     output_value = (output_value << 1) | bit;
@@ -483,7 +470,6 @@ output_bit (
 static BOOL
 decode_bits (
     int     spc,
-    FILE        *outf,
     std::ostringstream &outfile_stream
 ) {
     int b1 = 0, b2 = 0, b3 = 0;
@@ -503,13 +489,13 @@ decode_bits (
         b3 = 1;
     }
 
-    if (!output_bit (b1, outf, outfile_stream)) {
+    if (!output_bit (b1, outfile_stream)) {
         return (FALSE);
     }
-    if (!output_bit (b2, outf, outfile_stream)) {
+    if (!output_bit (b2, outfile_stream)) {
         return (FALSE);
     }
-    if (!output_bit (b3, outf, outfile_stream)) {
+    if (!output_bit (b3, outfile_stream)) {
         return (FALSE);
     }
 
@@ -534,7 +520,6 @@ decode_bits (
 static BOOL
 decode_whitespace (
     const char  *s,
-    FILE        *outf,
     std::ostringstream &outfile_stream
 ) {
     int     spc = 0;
@@ -543,12 +528,12 @@ decode_whitespace (
         if (*s == ' ') {
             spc++;
         } else if (*s == '\t') {
-            if (!decode_bits (spc, outf, outfile_stream)) {
+            if (!decode_bits (spc, outfile_stream)) {
                 return (FALSE);
             }
             spc = 0;
         } else if (*s == '\0') {
-            if (spc > 0 && !decode_bits (spc, outf, outfile_stream)) {
+            if (spc > 0 && !decode_bits (spc, outfile_stream)) {
                 return (FALSE);
             }
             return (TRUE);
@@ -562,8 +547,6 @@ decode_whitespace (
 
 BOOL
 message_extract (
-    FILE        *inf,
-    FILE        *outf,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream,
     int     text_encode_mode = 1,
@@ -640,7 +623,7 @@ message_extract (
             }
         }
 
-        if (!decode_whitespace (last_ws, outf, outfile_stream)) {
+        if (!decode_whitespace (last_ws, outfile_stream)) {
             fprintf(stderr, "Failed to decode whitespace.\n");
             return (FALSE);
         }
