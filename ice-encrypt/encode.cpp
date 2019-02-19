@@ -315,12 +315,11 @@ message_string_encode(const std::string &encode_message, std::string &encode_out
     return 0;
 }
 
-static int  output_bit_count = 0;
-static int  output_value = 0;
-
 static bool
-output_bit (
-    int     bit,
+output_bit(
+    int bit,
+    int &output_bit_count,
+    int &output_value,
     std::string &encode_output
 ) {
     output_value = (output_value << 1) | bit;
@@ -340,7 +339,9 @@ output_bit (
 
 static bool
 decode_bits (
-    int     spc,
+    int spc,
+    int &output_bit_count,
+    int &output_value,
     std::string &encode_output
 ) {
     int b1 = 0, b2 = 0, b3 = 0;
@@ -360,13 +361,13 @@ decode_bits (
         b3 = 1;
     }
 
-    if (!output_bit (b1, encode_output)) {
+    if (!output_bit (b1, output_bit_count, output_value, encode_output)) {
         return (false);
     }
-    if (!output_bit (b2, encode_output)) {
+    if (!output_bit (b2, output_bit_count, output_value, encode_output)) {
         return (false);
     }
-    if (!output_bit (b3, encode_output)) {
+    if (!output_bit (b3, output_bit_count, output_value, encode_output)) {
         return (false);
     }
 
@@ -380,7 +381,9 @@ decode_bits (
 
 static bool
 decode_whitespace (
-    const char  *s,
+    const char *s,
+    int &output_bit_count,
+    int &output_value,
     std::string &encode_output
 ) {
     int spc = 0;
@@ -388,12 +391,12 @@ decode_whitespace (
         if (*s == ' ') {
             spc++;
         } else if (*s == '\t') {
-            if (!decode_bits (spc, encode_output)) {
+            if (!decode_bits(spc, output_bit_count, output_value, encode_output)) {
                 return (false);
             }
             spc = 0;
         } else if (*s == '\0') {
-            if (spc > 0 && !decode_bits (spc, encode_output)) {
+            if (spc > 0 && !decode_bits(spc, output_bit_count, output_value, encode_output)) {
                 return (false);
             }
             return (true);
@@ -425,7 +428,10 @@ message_extract(const std::string &encode_string_info,
      * 解码相应数据
      */
     bool start_tab_found = false;
-    for (size_t i = 0; i < vecDecodeString.size(); ++i) {
+    int output_bit_count = 0;
+    int output_value = 0;
+    for (size_t i = 0; i < vecDecodeString.size(); ++i)
+    {
         std::string &strDecodeTmp = vecDecodeString[i];
 
         char *s = NULL;
@@ -458,7 +464,7 @@ message_extract(const std::string &encode_string_info,
             }
         }
 
-        if (!decode_whitespace (last_ws, encode_output)) {
+        if (!decode_whitespace(last_ws, output_bit_count, output_value, encode_output)) {
             fprintf(stderr, "Failed to decode whitespace.\n");
             return -1;
         }
