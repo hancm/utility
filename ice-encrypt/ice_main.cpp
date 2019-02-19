@@ -28,24 +28,21 @@ int main(void)
     ENCODE_STATUS_S encode_status;
     encode_init(encode_status);
 
-    std::ostringstream outfile_stream;
-    message_string_encode(encode_status, "123456789hancm123243647560-0-08090028804804hancm韩长鸣", outfile_stream);
+    message_string_encode(encode_status, "123456789hancm123243647560-0-08090028804804hancm韩长鸣");
 
     std::string encodeBuffer;
-    encode_flush(encode_status, outfile_stream, encodeBuffer);
+    encode_flush(encode_status, encodeBuffer);
 
-    std::cout << "\noutfile stream size: "
-              << outfile_stream.str().size() << "\nencode buffer size: " << encodeBuffer.size() << std::endl;
+    std::cout << "encode buffer size: " << encodeBuffer.size() << std::endl;
 
-    encodeBuffer = outfile_stream.str();
     std::ofstream of("encode.txt");
     of.write(encodeBuffer.c_str(), encodeBuffer.size());
 
     // 解码
     std::istringstream infile_stream;
-    infile_stream.clear();
     infile_stream.str(encodeBuffer);
 
+    std::ostringstream outfile_stream;
     outfile_stream.clear();
     outfile_stream.str("");
     message_extract (infile_stream, outfile_stream);

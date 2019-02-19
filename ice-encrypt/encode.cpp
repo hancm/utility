@@ -130,14 +130,14 @@ static bool
 wsputs (
     char        *buf,
     int         size,
-    std::ostringstream &outfile_stream,
-    char    splite_char = '\r'
+    std::string &encode_out
 ) {
-    buf[size++] = splite_char;
-    if (!outfile_stream.write(buf, size)) {
-        fprintf(stderr, "Error: failed to wsputs write.\n");
-        return (false);
-    }
+    buf[size++] = '\r';
+    encode_out.append(buf, size);
+//  if (!outfile_stream.write(buf, size)) {
+//      fprintf(stderr, "Error: failed to wsputs write.\n");
+//      return (false);
+//  }
 
     return (true);
 }
@@ -183,8 +183,7 @@ whitespace_storage (
 
 static void
 encode_buffer_load (
-    ENCODE_STATUS_S &encode_status,
-    std::ostringstream &outfile_stream
+    ENCODE_STATUS_S &encode_status
 ) {
 //  if (wsgets (encode_status.encode_buffer, sizeof(encode_status.encode_buffer), infile_stream, outfile_stream) == NULL) {
         encode_status.encode_buffer[0] = '\0';
@@ -261,20 +260,19 @@ encode_append_whitespace (
 static bool
 encode_write_value (
     ENCODE_STATUS_S &encode_status,
-    int     val,
-    std::ostringstream &outfile_stream
+    int val
 ) {
     if (!encode_status.encode_buffer_loaded) {
-        encode_buffer_load (encode_status, outfile_stream);
+        encode_buffer_load (encode_status);
     }
 
     // 加密空白以Tab开头
     if (!encode_status.encode_first_tab) {                                                /* Tab shows start of data */
         while (tabpos (encode_status.encode_buffer_column) >= line_length) {
-            if (!wsputs (encode_status.encode_buffer, strlen(encode_status.encode_buffer), outfile_stream)) {
+            if (!wsputs (encode_status.encode_buffer, strlen(encode_status.encode_buffer), encode_status.encode_out)) {
                 return (false);
             }
-            encode_buffer_load (encode_status, outfile_stream);
+            encode_buffer_load (encode_status);
         }
 
         encode_status.encode_buffer[encode_status.encode_buffer_length++] = '\t';
@@ -287,10 +285,10 @@ encode_write_value (
     int nspc = ((val & 1) << 2) | (val & 2) | ((val & 4) >> 2);
 
     while (!encode_append_whitespace (encode_status, nspc)) {
-        if (!wsputs (encode_status.encode_buffer, strlen(encode_status.encode_buffer), outfile_stream)) {
+        if (!wsputs (encode_status.encode_buffer, strlen(encode_status.encode_buffer), encode_status.encode_out)) {
             return (false);
         }
-        encode_buffer_load (encode_status, outfile_stream);
+        encode_buffer_load (encode_status);
     }
 
     if (encode_status.encode_lines_extra == 0) {
@@ -307,15 +305,13 @@ encode_write_value (
 
 static bool
 encode_write_flush (
-    ENCODE_STATUS_S &encode_status,
-    std::ostringstream &outfile_stream,
-    char splite_char = '\r'
+    ENCODE_STATUS_S &encode_status
 ) {
     unsigned long n_lo = 0;
     unsigned long n_hi = 0;
 
     if (encode_status.encode_buffer_loaded) {
-        if (!wsputs(encode_status.encode_buffer, strlen(encode_status.encode_buffer), outfile_stream)) {
+        if (!wsputs(encode_status.encode_buffer, strlen(encode_status.encode_buffer), encode_status.encode_out)) {
             return (false);
         }
         encode_status.encode_buffer_loaded = false;
@@ -344,18 +340,7 @@ encode_write_flush (
 
 void encode_init(ENCODE_STATUS_S &encode_status)
 {
-//  encode_status.encode_bit_count = 0;
-//  encode_status.encode_value = 0;
-//  encode_status.encode_buffer_loaded = false;
-//  encode_status.encode_buffer_length = 0;
-//  encode_status.encode_buffer_column = 0;
-//  encode_status.encode_first_tab = false;
-//  encode_status.encode_bits_used = 0;
-//  encode_status.encode_bits_available = 0;
-//  encode_status.encode_lines_extra = 0;
-//  encode_status.encode_needs_tab = false;
-
-    memset(&encode_status, 0, sizeof(encode_status));
+    encode_status = ENCODE_STATUS_S();
 }
 
 
@@ -366,14 +351,13 @@ void encode_init(ENCODE_STATUS_S &encode_status)
 bool
 encode_bit (
     ENCODE_STATUS_S &encode_status,
-    int     bit,
-    std::ostringstream &outfile_stream
+    int     bit
 ) {
     encode_status.encode_value = (encode_status.encode_value << 1) | bit;
     encode_status.encode_bits_used++;
 
     if (++encode_status.encode_bit_count == 3) {
-        if (!encode_write_value (encode_status, encode_status.encode_value, outfile_stream)) {
+        if (!encode_write_value (encode_status, encode_status.encode_value)) {
             return (false);
         }
 
@@ -392,8 +376,7 @@ encode_bit (
 bool
 encode_flush (
     ENCODE_STATUS_S &encode_status,
-    std::ostringstream &outfile_stream,
-    std::string &encodeBuffer
+    std::string &encode_output
 ) {
     if (encode_status.encode_bit_count > 0) {
 
@@ -403,16 +386,16 @@ encode_flush (
             encode_status.encode_bit_count++;
         }
 
-        if (!encode_write_value (encode_status, encode_status.encode_value, outfile_stream)) {
+        if (!encode_write_value (encode_status, encode_status.encode_value)) {
             return (false);
         }
     }
 
-    if (!encode_write_flush (encode_status, outfile_stream)) {
+    if (!encode_write_flush (encode_status)) {
         return (false);
     }
 
-    encodeBuffer = encode_status.encode_buffer;
+    encode_output = encode_status.encode_out;
 
 //  if (!quiet_flag) {
 //      if (encode_status.encode_lines_extra > 0) {
@@ -431,13 +414,12 @@ encode_flush (
 
 static int
 character_encode(ENCODE_STATUS_S &encode_status,
-                 unsigned char c,
-                 std::ostringstream &outfile_stream)
+                 unsigned char c)
 {
     for (int i = 0; i < 8; i++)
     {
         int bit = ((c & (128 >> i)) != 0) ? 1 : 0;
-        if (!encode_bit (encode_status, bit, outfile_stream)) {
+        if (!encode_bit (encode_status, bit)) {
             return (false);
         }
     }
@@ -454,11 +436,10 @@ character_encode(ENCODE_STATUS_S &encode_status,
  */
 int
 message_string_encode(ENCODE_STATUS_S &encode_status,
-                      const char *msg,
-                      std::ostringstream &outfile_stream)
+                      const char *msg)
 {
     while (*msg != '\0') {
-        if (!character_encode (encode_status, *msg, outfile_stream)) {
+        if (!character_encode (encode_status, *msg)) {
             return (false);
         }
         msg++;
