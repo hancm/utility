@@ -82,7 +82,7 @@ encode_buffer_load (
     ENCODE_STATUS_S &encode_status
 ) {
     encode_status.encode_buffer[0] = '\0';
-    encode_status.encode_lines_extra++;
+//  encode_status.encode_lines_extra++;
     encode_status.encode_buffer_length = strlen (encode_status.encode_buffer);
     encode_status.encode_buffer_column = 0;
     for (int i=0; encode_status.encode_buffer[i] != '\0'; i++) {
@@ -237,7 +237,7 @@ encode_bit (
     int     bit
 ) {
     encode_status.encode_value = (encode_status.encode_value << 1) | bit;
-    encode_status.encode_bits_used++;
+//  encode_status.encode_bits_used++;
 
     if (++encode_status.encode_bit_count == 3) {
         if (!encode_write_value (encode_status, encode_status.encode_value)) {

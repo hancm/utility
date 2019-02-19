@@ -27,7 +27,7 @@ int main(void)
 
     // 编码
     std::string encodeBuffer;
-    message_string_encode("123456789hancm123243647560-0-08090028804804hancm韩长鸣", encodeBuffer);
+    message_string_encode("2232ddd123456789hancm123243647560-0-08090028804804hancm韩长鸣232323232323", encodeBuffer);
     std::cout << "encode buffer size: " << encodeBuffer.size() << std::endl;
 
     std::ofstream of("encode.txt");
