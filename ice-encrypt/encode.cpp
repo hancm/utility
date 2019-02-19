@@ -435,15 +435,18 @@ character_encode(ENCODE_STATUS_S &encode_status,
  * @note
  */
 int
-message_string_encode(ENCODE_STATUS_S &encode_status,
-                      const char *msg)
+message_string_encode(const std::string &encode_message, std::string &encode_output)
 {
-    while (*msg != '\0') {
-        if (!character_encode (encode_status, *msg)) {
+    ENCODE_STATUS_S encode_status;
+    encode_init(encode_status);
+
+    for (size_t i = 0; i < encode_message.size(); ++i) {
+        if (!character_encode (encode_status, encode_message[i])) {
             return (false);
         }
-        msg++;
     }
+
+    encode_flush(encode_status, encode_output);
 
     return 0;
 }
@@ -550,10 +553,9 @@ decode_whitespace (
  */
 
 bool
-message_extract (
-    const std::string &encode_string_info,
-    std::string &encode_output
-) {
+message_extract(const std::string &encode_string_info,
+                std::string &encode_output)
+{
     bool start_tab_found = false;
 
     //decrypt_init ();

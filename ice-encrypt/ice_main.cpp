@@ -26,12 +26,8 @@ int main(void)
     */
 
     // 编码
-    ENCODE_STATUS_S encode_status;
-    encode_init(encode_status);
-    message_string_encode(encode_status, "123456789hancm123243647560-0-08090028804804hancm韩长鸣");
-
     std::string encodeBuffer;
-    encode_flush(encode_status, encodeBuffer);
+    message_string_encode("123456789hancm123243647560-0-08090028804804hancm韩长鸣", encodeBuffer);
     std::cout << "encode buffer size: " << encodeBuffer.size() << std::endl;
 
     std::ofstream of("encode.txt");
