@@ -47,11 +47,8 @@ int main(void)
 //  iRet = message_extract (encodeBuffer, encode_output);
 //  std::cout << "Ret: " << iRet << " decode: " << encode_output << std::endl;
 
-    compress_init();
-    compress_character('h');
-
     std::string compress_output_string;
-    compress_flush(compress_output_string);
+    compress_string("h", compress_output_string);
     std::cout << "output: " << compress_output_string << std::endl;
 
     std::string uncompress_out;

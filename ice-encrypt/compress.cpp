@@ -1,66 +1,43 @@
 #include <string.h>
 #include <string>
 #include <iostream>
+#include "compress.h"
 
 static const char *huffcodes[256] = {
 #include "huffcode.h"
 };
 
-static int              compress_bit_count;
-static int              compress_value;
-static unsigned long    compress_bits_in;
-static unsigned long    compress_bits_out;
-static std::string      compress_output;
-
-void compress_init(void)
+void compress_init(COMPRESS_STATUS_S &compress_status)
 {
-    compress_bit_count = 0;
-    compress_value = 0;
-    compress_bits_in = 0;
-    compress_bits_out = 0;
+    compress_status = COMPRESS_STATUS_S();
 }
 
-bool compress_bit(int bit)
+bool compress_bit(COMPRESS_STATUS_S &compress_status, int bit)
 {
-//  if (!compress_flag)
-//      return (encrypt_bit (bit, inf, outf));
-
-    compress_bits_in++;
-    compress_value = (compress_value << 1) | bit;
-    if (++compress_bit_count == 8) {
+    compress_status.compress_bits_in++;
+    compress_status.compress_value = (compress_status.compress_value << 1) | bit;
+    if (++compress_status.compress_bit_count == 8) {
         const char *s = NULL;
-        for (s = huffcodes[compress_value]; *s != '\0'; s++) {
-//          int bit;
-
-//          if (*s == '1') {
-//              bit = 1;
-//          } else if (*s == '0') {
-//              bit = 0;
-//          } else {
-//              fprintf (stderr, "Illegal Huffman character '%c'\n", *s);
-//              return (FALSE);
-//          }
-            compress_output.push_back(*s);
-    //      if (!encrypt_bit (bit, inf, outf))
-    //          return (FALSE);
-            compress_bits_out++;
+        for (s = huffcodes[compress_status.compress_value]; *s != '\0'; s++) {
+            compress_status.compress_output.push_back(*s);
+            compress_status.compress_bits_out++;
         }
 
-        compress_value = 0;
-        compress_bit_count = 0;
+        compress_status.compress_value = 0;
+        compress_status.compress_bit_count = 0;
     }
 
     return (true);
 }
 
-bool compress_flush(std::string &compress_output_string)
+bool compress_flush(COMPRESS_STATUS_S &compress_status, std::string &compress_output_string)
 {
-    if (compress_bit_count != 0) {
-        fprintf (stderr, "Warning: residual of %d bits not compressed\n", compress_bit_count);
+    if (compress_status.compress_bit_count != 0) {
+        fprintf (stderr, "Warning: residual of %d bits not compressed\n", compress_status.compress_bit_count);
     }
 
-    if (compress_bits_out > 0) {
-        double cpc = (double)(compress_bits_in - compress_bits_out) / (double) compress_bits_in * 100.0;
+    if (compress_status.compress_bits_out > 0) {
+        double cpc = (double)(compress_status.compress_bits_in - compress_status.compress_bits_out) / (double)compress_status.compress_bits_in * 100.0;
 
         if (cpc < 0.0) {
             fprintf (stderr, "Compression enlarged data by %.2f%% - recommend not using compression\n", -cpc);
@@ -69,20 +46,33 @@ bool compress_flush(std::string &compress_output_string)
         }
     }
 
-    compress_output_string = compress_output;
+    compress_output_string = compress_status.compress_output;
     return true;
 }
 
-int compress_character(unsigned char c)
+static int compress_character(COMPRESS_STATUS_S &compress_status, unsigned char c)
 {
     for (int i = 0; i < 8; i++)
     {
         int bit = ((c & (128 >> i)) != 0) ? 1 : 0;
-        if (!compress_bit(bit)) {
+        if (!compress_bit(compress_status, bit)) {
             return (false);
         }
     }
     return (true);
+}
+
+int compress_string(const std::string &plain_string, std::string &compress_output_string)
+{
+    COMPRESS_STATUS_S compress_status;
+    compress_init(compress_status);
+
+    for (size_t i = 0; i < plain_string.size(); ++i) {
+        compress_character(compress_status, plain_string[i]);
+    }
+
+    compress_flush(compress_status, compress_output_string);
+    return 0;
 }
 
 static int  output_bit_count;
