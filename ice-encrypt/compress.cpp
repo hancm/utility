@@ -1,52 +1,27 @@
 #include <string.h>
 #include <string>
+#include <iostream>
 
-/*
- * The Huffman codes.
- */
-
-static const char   *huffcodes[256] = {
+static const char *huffcodes[256] = {
 #include "huffcode.h"
 };
 
-
-/*
- * Local variables used for compression.
- */
-
-static int      compress_bit_count;
-static int      compress_value;
+static int              compress_bit_count;
+static int              compress_value;
 static unsigned long    compress_bits_in;
 static unsigned long    compress_bits_out;
 static std::string      compress_output;
 
-/*
- * Initialize the compression routines.
- */
-
-void
-compress_init (void)
+void compress_init(void)
 {
     compress_bit_count = 0;
     compress_value = 0;
     compress_bits_in = 0;
     compress_bits_out = 0;
-
-//  encrypt_init ();
 }
 
-
-/*
- * Compress a single bit.
- */
-
-BOOL
-compress_bit (
-    int bit
-
-//  FILE        *inf,
-//  FILE        *outf
-) {
+bool compress_bit(int bit)
+{
 //  if (!compress_flag)
 //      return (encrypt_bit (bit, inf, outf));
 
@@ -75,24 +50,16 @@ compress_bit (
         compress_bit_count = 0;
     }
 
-    return (TRUE);
+    return (true);
 }
 
-
-/*
- * Flush the contents of the compression routines.
- */
-
-BOOL
-compress_flush (
-//  FILE        *inf,
-//  FILE        *outf
-) {
+bool compress_flush(std::string &compress_output_string)
+{
     if (compress_bit_count != 0) {
         fprintf (stderr, "Warning: residual of %d bits not compressed\n", compress_bit_count);
     }
 
-    if (compress_bits_out > 0 && !quiet_flag) {
+    if (compress_bits_out > 0) {
         double cpc = (double)(compress_bits_in - compress_bits_out) / (double) compress_bits_in * 100.0;
 
         if (cpc < 0.0) {
@@ -102,102 +69,70 @@ compress_flush (
         }
     }
 
-    return true;//(encrypt_flush (inf, outf));
+    compress_output_string = compress_output;
+    return true;
 }
 
-
-/*
- * Local variables used for output.
- */
+int compress_character(unsigned char c)
+{
+    for (int i = 0; i < 8; i++)
+    {
+        int bit = ((c & (128 >> i)) != 0) ? 1 : 0;
+        if (!compress_bit(bit)) {
+            return (false);
+        }
+    }
+    return (true);
+}
 
 static int  output_bit_count;
 static int  output_value;
 
-
-/*
- * Initialize the output variables.
- */
-
-static void
-output_init (void)
+static void output_init(void)
 {
     output_bit_count = 0;
     output_value = 0;
 }
 
-
-/*
- * Output a single bit.
- */
-
-static BOOL
-output_bit (
-    int     bit,
-    FILE        *outf
-) {
+static bool output_bit(int bit, std::string &uncompress_out)
+{
     output_value = (output_value << 1) | bit;
     if (++output_bit_count == 8) {
-        outfile_stream << (char)output_value;
-        if (fputc (output_value, outf) == EOF) {
-        perror ("Output file");
-        return (FALSE);
-        }
+        uncompress_out.push_back((char)output_value);
+//      outfile_stream << (char)output_value;
+//      if (fputc (output_value, outf) == EOF) {
+//      perror ("Output file");
+//      return (false);
+//      }
 
         output_value = 0;
         output_bit_count = 0;
     }
 
-    return (TRUE);
+    return (true);
 }
 
-
-/*
- * Flush the contents of the output routines.
- */
-
-static BOOL
-output_flush (
-//  FILE        *outf
-) {
+static bool output_flush()
+{
     if (output_bit_count > 2) {
         fprintf (stderr, "Warning: residual of %d bits not output\n", output_bit_count);
     }
 
-    return (TRUE);
+    return (true);
 }
-
-
-/*
- * Local variables used for uncompression.
- */
 
 static int  uncompress_bit_count;
 static char uncompress_value[256];
 
-
-/*
- * Initialize the uncompression routines.
- */
-
-void
-uncompress_init (void)
+void uncompress_init(void)
 {
     uncompress_bit_count = 0;
-
     output_init ();
 }
 
-
-/*
- * Find the Huffman code string that matches.
- */
-
-static int
-huffcode_find (
-    const char  *str
-) {
-    int     i;
-
+static int huffcode_find(const char  *str)
+{
+    int i;
     for (i=0; i<256; i++)
         if (strcmp (str, huffcodes[i]) == 0)
         return (i);
@@ -205,32 +140,24 @@ huffcode_find (
     return (-1);
 }
 
+bool uncompress_bit(int bit, std::string &uncompress_out)
+{
+    int code;
 
-/*
- * Uncompress a single bit.
- */
-
-BOOL
-uncompress_bit (
-    int     bit,
-    FILE        *outf
-) {
-    int     code;
-
-    if (!compress_flag)
-        return (output_bit (bit, outf));
+//  if (!compress_flag)
+//      return (output_bit (bit, outf));
 
     uncompress_value[uncompress_bit_count++] = bit ? '1' : '0';
     uncompress_value[uncompress_bit_count] = '\0';
+    std::cout << "uncompress_value: " << uncompress_value << std::endl;
 
     if ((code = huffcode_find (uncompress_value)) >= 0) {
-        int     i;
+        for (int i=0; i<8; i++) {
+            int b = ((code & (128 >> i)) != 0) ? 1 : 0;
 
-        for (i=0; i<8; i++) {
-        int b = ((code & (128 >> i)) != 0) ? 1 : 0;
-
-        if (!output_bit (b, outf))
-            return (FALSE);
+            if (!output_bit (b, uncompress_out)) {
+                return (false);
+            }
         }
 
         uncompress_bit_count = 0;
@@ -238,24 +165,17 @@ uncompress_bit (
 
     if (uncompress_bit_count >= 255) {
         fprintf (stderr, "Error: Huffman uncompress buffer overflow\n");
-        return (FALSE);
+        return (false);
     }
 
-    return (TRUE);
+    return (true);
 }
 
-
-/*
- * Flush the contents of the uncompression routines.
- */
-
-BOOL
-uncompress_flush (
-//  FILE        *outf
-) {
+bool uncompress_flush()
+{
     if (uncompress_bit_count > 2) {
         fprintf (stderr, "Warning: residual of %d bits not uncompressed\n", uncompress_bit_count);
     }
 
-    return true;//(output_flush (outf));
+    return true;
 }
