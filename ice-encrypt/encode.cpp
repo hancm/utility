@@ -454,18 +454,12 @@ static int  output_value = 0;
 static bool
 output_bit (
     int     bit,
-    std::ostringstream &outfile_stream
+    std::string &encode_output
 ) {
     output_value = (output_value << 1) | bit;
-    std::cout << "output value: " << output_value << std::endl;
     if (++output_bit_count == 8) {
-        std::cout << "output value2: " << output_value << std::endl;
-        outfile_stream << (char)output_value;
-//      if (fputc (output_value, outf) == EOF) {
-//          perror ("Output file");
-//          return (false);
-//      }
-
+        encode_output.push_back((char)output_value);
+//      outfile_stream << (char)output_value;
         output_value = 0;
         output_bit_count = 0;
     }
@@ -481,7 +475,7 @@ output_bit (
 static bool
 decode_bits (
     int     spc,
-    std::ostringstream &outfile_stream
+    std::string &encode_output
 ) {
     int b1 = 0, b2 = 0, b3 = 0;
 
@@ -500,13 +494,13 @@ decode_bits (
         b3 = 1;
     }
 
-    if (!output_bit (b1, outfile_stream)) {
+    if (!output_bit (b1, encode_output)) {
         return (false);
     }
-    if (!output_bit (b2, outfile_stream)) {
+    if (!output_bit (b2, encode_output)) {
         return (false);
     }
-    if (!output_bit (b3, outfile_stream)) {
+    if (!output_bit (b3, encode_output)) {
         return (false);
     }
 
@@ -531,20 +525,19 @@ decode_bits (
 static bool
 decode_whitespace (
     const char  *s,
-    std::ostringstream &outfile_stream
+    std::string &encode_output
 ) {
-    int     spc = 0;
-    std::cout << "s: " << s << std::endl;
+    int spc = 0;
     for (;; s++) {
         if (*s == ' ') {
             spc++;
         } else if (*s == '\t') {
-            if (!decode_bits (spc, outfile_stream)) {
+            if (!decode_bits (spc, encode_output)) {
                 return (false);
             }
             spc = 0;
         } else if (*s == '\0') {
-            if (spc > 0 && !decode_bits (spc, outfile_stream)) {
+            if (spc > 0 && !decode_bits (spc, encode_output)) {
                 return (false);
             }
             return (true);
@@ -558,10 +551,8 @@ decode_whitespace (
 
 bool
 message_extract (
-    std::istringstream &infile_stream,
-    std::ostringstream &outfile_stream,
-    int     text_encode_mode,
-    char splite_char
+    const std::string &encode_string_info,
+    std::string &encode_output
 ) {
     bool start_tab_found = false;
 
@@ -570,11 +561,10 @@ message_extract (
     /**
      * 先找到所有需要解码的数据
      */
+    std::istringstream infile_stream(encode_string_info);
     std::vector<std::string> vecDecodeString;
     std::string strSplite;
-    bool bFindEOF = false;
-    while (std::getline(infile_stream, strSplite, splite_char)) {
-        std::cout << "Splite size: " << strSplite.size() << std::endl;
+    while (std::getline(infile_stream, strSplite, '\r')) {
 //      if (1== text_encode_mode) {
 //          // PDF模式添加密文到文件末尾
 //
@@ -634,7 +624,7 @@ message_extract (
             }
         }
 
-        if (!decode_whitespace (last_ws, outfile_stream)) {
+        if (!decode_whitespace (last_ws, encode_output)) {
             fprintf(stderr, "Failed to decode whitespace.\n");
             return (false);
         }
