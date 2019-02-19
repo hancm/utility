@@ -40,87 +40,6 @@ tabpos (
     return ((n + 8) & ~7);
 }
 
-
-/*
- * Read a line of text, like fgets, but strip off trailing whitespace.
- */
-
-static void wsremove(char *buf)
-{
-    int n = strlen (buf) - 1;
-    while (n >= 0 && (buf[n] == ' ' || buf[n] == '\t' ||
-                      buf[n] == '\n' || buf[n] == '\r')) {
-        buf[n] = '\0';
-        n--;
-    }
-}
-
-
-static char *
-wsgets (
-    char        *buf,
-    int         size,
-    std::istringstream &infile_stream,
-    std::ostringstream &outfile_stream,
-    char        *filter_word_string = "%%EOF%%EOF",
-    int         text_encode_mode = 1,
-    char        splite_char = '\r'
-) {
-    return NULL;
-
-//  // 指定单词模式
-//  int flag = 0;
-//  std::string strSplite;
-//  if (1 == text_encode_mode || 2 == text_encode_mode) {
-//      while (infile_stream.good()) {
-//          strSplite.clear();
-//          std::getline(infile_stream, strSplite, splite_char);
-//          std::string strSource;
-//          strSource = strSplite + splite_char;              // getline不会读取最后的换行符
-//
-//          if (strSplite != filter_word_string) {
-//              // 没找到需要的字符串
-//              // 把原字符串输出到文件
-//              if (!outfile_stream.write(strSource.c_str(), strSource.size())) {
-//                  fprintf(stderr, "Failed to write %s to outfile.", strSource.c_str());
-//                  return NULL;
-//              }
-//              continue;
-//          }
-//
-//          /**
-//           * 目前设计pdf走不到这里
-//           */
-//          fprintf(stderr, "find@: ");
-//          for (size_t i = 0; i < strSource.size(); ++i) {
-//              if ('\r' == strSource[i]) {
-//                  fprintf(stderr, "\\r");
-//              } else if ('\n' == strSource[i]) {
-//                  fprintf(stderr, "\\n");
-//              } else {
-//                  fprintf(stderr, "%c", strSource[i]);
-//              }
-//          }
-//          fprintf(stderr, "\n");
-//
-//          memset(buf, 0, size);
-//          strncpy(buf, filter_word_string, size - 1);
-//          wsremove(buf);
-//          flag = 1;
-//          break;
-//      }
-//  } else {
-//      std::getline(infile_stream, strSplite);
-//      memset(buf, 0, size);
-//      strncpy(buf, strSplite.c_str(), size - 1);
-//      wsremove(buf);
-//      flag = 1;
-//  }
-//
-//  return flag ? buf : NULL;
-}
-
-
 /*
  * Write a line of text, adding a newline.
  * Return false if the write fails.
@@ -442,11 +361,13 @@ message_string_encode(const std::string &encode_message, std::string &encode_out
 
     for (size_t i = 0; i < encode_message.size(); ++i) {
         if (!character_encode (encode_status, encode_message[i])) {
-            return (false);
+            return -1;
         }
     }
 
-    encode_flush(encode_status, encode_output);
+    if (encode_flush(encode_status, encode_output)) {
+        return -1;
+    }
 
     return 0;
 }
@@ -552,47 +473,25 @@ decode_whitespace (
  * Extract a message from the input stream.
  */
 
-bool
+int
 message_extract(const std::string &encode_string_info,
                 std::string &encode_output)
 {
-    bool start_tab_found = false;
-
-    //decrypt_init ();
-
-    /**
-     * 先找到所有需要解码的数据
-     */
+    // 获取数据
     std::istringstream infile_stream(encode_string_info);
     std::vector<std::string> vecDecodeString;
     std::string strSplite;
     while (std::getline(infile_stream, strSplite, '\r')) {
-//      if (1== text_encode_mode) {
-//          // PDF模式添加密文到文件末尾
-//
-//          // 上次查询找到了EOF
-//          if (bFindEOF) {
-//              if (std::string::npos != strSplite.find_first_not_of(" \t\n\r")) {
-//                  // 出现字符，找到结尾
-//                  bFindEOF = false;
-//                  continue;
-//              } else if (std::string::npos != strSplite.find("\t")) {
-//                  vecDecodeString.push_back(strSplite);
-//              }
-//          }
-//
-//          if (std::string::npos != strSplite.find("%%EOF")) {
-//              bFindEOF = true;
-//          }
-//      } else {
-            // 普通text模式
-            vecDecodeString.push_back(strSplite);
-//      }
+        vecDecodeString.push_back(strSplite);
+    }
+    if (vecDecodeString.empty()) {
+        return -1;
     }
 
     /**
      * 解码相应数据
      */
+    bool start_tab_found = false;
     for (size_t i = 0; i < vecDecodeString.size(); ++i) {
         std::string &strDecodeTmp = vecDecodeString[i];
 
@@ -628,11 +527,11 @@ message_extract(const std::string &encode_string_info,
 
         if (!decode_whitespace (last_ws, encode_output)) {
             fprintf(stderr, "Failed to decode whitespace.\n");
-            return (false);
+            return -1;
         }
     }
 
-    return true;//(decrypt_flush (outf));
+    return 0;
 }
 
 
