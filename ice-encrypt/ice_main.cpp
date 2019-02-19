@@ -25,18 +25,16 @@ int main(void)
     ice_key_destroy (ice);
     */
 
-    std::istringstream infile_stream;
-    std::ostringstream outfile_stream;
-
     ENCODE_STATUS_S encode_status;
     encode_init(encode_status);
 
-    message_string_encode(encode_status, "123456789hancm123243647560-0-08090028804804hancm韩长鸣", infile_stream, outfile_stream);
+    std::ostringstream outfile_stream;
+    message_string_encode(encode_status, "123456789hancm123243647560-0-08090028804804hancm韩长鸣", outfile_stream);
 
     std::string encodeBuffer;
-    encode_flush(encode_status, infile_stream, outfile_stream, encodeBuffer);
+    encode_flush(encode_status, outfile_stream, encodeBuffer);
 
-    std::cout << "infile stream: " << infile_stream.str() << "\noutfile stream size: "
+    std::cout << "\noutfile stream size: "
               << outfile_stream.str().size() << "\nencode buffer size: " << encodeBuffer.size() << std::endl;
 
     encodeBuffer = outfile_stream.str();
@@ -44,6 +42,7 @@ int main(void)
     of.write(encodeBuffer.c_str(), encodeBuffer.size());
 
     // 解码
+    std::istringstream infile_stream;
     infile_stream.clear();
     infile_stream.str(encodeBuffer);
 
