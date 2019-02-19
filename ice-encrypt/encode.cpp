@@ -13,23 +13,6 @@
 const int line_length = 80;
 
 /*
- * Local variables used for encoding.
- */
-
-//static int      encode_status.encode_bit_count;                   // 编码bit数目，等于3一次编码
-//static int      encode_status.encode_value;                       // 编码值
-//static char     encode_status.encode_buffer[1024 * 1024 * 2];     // 编码缓存，没有结尾空白符
-//static bool     encode_status.encode_buffer_loaded;               // 编码缓存是否已加载，encode_buffer_load后加载
-//static int      encode_status.encode_buffer_length;               // 编码缓存长度(字节数)
-//static int      encode_status.encode_buffer_column;               // 缓存列长度(tab算4个，一个字符一个)
-//static bool     encode_status.encode_first_tab;
-//static bool     encode_status.encode_needs_tab;                   // 编码是否需要tab
-//static unsigned long    encode_status.encode_bits_used;
-//static unsigned long    encode_status.encode_bits_available;
-//static unsigned long    encode_status.encode_lines_extra;         // 行后没有编码完的，需要额外行数目
-
-
-/*
  * Return the next tab position.
  */
 
@@ -53,11 +36,6 @@ wsputs (
 ) {
     buf[size++] = '\r';
     encode_out.append(buf, size);
-//  if (!outfile_stream.write(buf, size)) {
-//      fprintf(stderr, "Error: failed to wsputs write.\n");
-//      return (false);
-//  }
-
     return (true);
 }
 
@@ -65,14 +43,13 @@ wsputs (
 /*
  * Calculate, approximately, how many bits can be stored in the line.
  */
-
 static void
 whitespace_storage (
     const char  *buf,
     unsigned long   *n_lo,
     unsigned long   *n_hi
 ) {
-    int     n, len = strlen (buf);
+    int n = 0, len = strlen (buf);
 
     if (len > line_length - 2)
         return;
@@ -104,13 +81,9 @@ static void
 encode_buffer_load (
     ENCODE_STATUS_S &encode_status
 ) {
-//  if (wsgets (encode_status.encode_buffer, sizeof(encode_status.encode_buffer), infile_stream, outfile_stream) == NULL) {
-        encode_status.encode_buffer[0] = '\0';
-        encode_status.encode_lines_extra++;
-//  }
-
+    encode_status.encode_buffer[0] = '\0';
+    encode_status.encode_lines_extra++;
     encode_status.encode_buffer_length = strlen (encode_status.encode_buffer);
-
     encode_status.encode_buffer_column = 0;
     for (int i=0; encode_status.encode_buffer[i] != '\0'; i++) {
         if (encode_status.encode_buffer[i] == '\t') {
@@ -210,9 +183,9 @@ encode_write_value (
         encode_buffer_load (encode_status);
     }
 
-    if (encode_status.encode_lines_extra == 0) {
-        encode_status.encode_bits_available += 3;
-    }
+//  if (encode_status.encode_lines_extra == 0) {
+//      encode_status.encode_bits_available += 3;
+//  }
 
     return (true);
 }
@@ -238,16 +211,7 @@ encode_write_flush (
         encode_status.encode_buffer_column = 0;
     }
 
-//  std::string str;
-//  while (std::getline(infile_stream, str, splite_char)) {
-//      str += splite_char;
-//      whitespace_storage (str.c_str(), &n_lo, &n_hi);
-//
-//      if (!outfile_stream.write(/*tmp_buf, infile_stream.gcount()*/str.c_str(), str.size()))
-//          return (false);
-//  }
-
-    encode_status.encode_bits_available += (n_lo + n_hi) / 2;
+//  encode_status.encode_bits_available += (n_lo + n_hi) / 2;
 
     return (true);
 }
@@ -315,18 +279,6 @@ encode_flush (
     }
 
     encode_output = encode_status.encode_out;
-
-//  if (!quiet_flag) {
-//      if (encode_status.encode_lines_extra > 0) {
-//          fprintf (stderr, "Message exceeded available space by approximately %.2f%%.\n",
-//                   ((double) encode_status.encode_bits_used / encode_status.encode_bits_available - 1.0) * 100.0);
-//
-//          fprintf (stderr, "An extra %ld lines were added.\n", encode_status.encode_lines_extra);
-//      } else {
-//          fprintf (stderr, "Message used approximately %.2f%% of available space.\n",
-//               (double) encode_status.encode_bits_used / encode_status.encode_bits_available * 100.0);
-//      }
-//  }
 
     return (true);
 }
@@ -427,16 +379,6 @@ decode_bits (
     if (!output_bit (b3, encode_output)) {
         return (false);
     }
-
-//  if (!decrypt_bit (b1, outf)) {
-//      return (false);
-//  }
-//  if (!decrypt_bit (b2, outf)) {
-//      return (false);
-//  }
-//  if (!decrypt_bit (b3, outf)) {
-//      return (false);
-//  }
 
     return (true);
 }
