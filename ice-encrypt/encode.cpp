@@ -8,15 +8,7 @@
 #include <string>
 #include <vector>
 
-typedef int BOOL;
-
-#ifndef FALSE
-#define FALSE   0
-#endif
-
-#ifndef TRUE
-#define TRUE    1
-#endif
+#include "encode.h"
 
 const int line_length = 80;
 
@@ -24,17 +16,17 @@ const int line_length = 80;
  * Local variables used for encoding.
  */
 
-static int      encode_bit_count;                   // 编码bit数目，等于3一次编码
-static int      encode_value;                       // 编码值
-static char     encode_buffer[1024 * 1024 * 2];     // 编码缓存，没有结尾空白符
-static BOOL     encode_buffer_loaded;               // 编码缓存是否已加载，encode_buffer_load后加载
-static int      encode_buffer_length;               // 编码缓存长度(字节数)
-static int      encode_buffer_column;               // 缓存列长度(tab算4个，一个字符一个)
-static BOOL     encode_first_tab;
-static BOOL     encode_needs_tab;                   // 编码是否需要tab
-static unsigned long    encode_bits_used;
-static unsigned long    encode_bits_available;
-static unsigned long    encode_lines_extra;         // 行后没有编码完的，需要额外行数目
+//static int      encode_status.encode_bit_count;                   // 编码bit数目，等于3一次编码
+//static int      encode_status.encode_value;                       // 编码值
+//static char     encode_status.encode_buffer[1024 * 1024 * 2];     // 编码缓存，没有结尾空白符
+//static bool     encode_status.encode_buffer_loaded;               // 编码缓存是否已加载，encode_buffer_load后加载
+//static int      encode_status.encode_buffer_length;               // 编码缓存长度(字节数)
+//static int      encode_status.encode_buffer_column;               // 缓存列长度(tab算4个，一个字符一个)
+//static bool     encode_status.encode_first_tab;
+//static bool     encode_status.encode_needs_tab;                   // 编码是否需要tab
+//static unsigned long    encode_status.encode_bits_used;
+//static unsigned long    encode_status.encode_bits_available;
+//static unsigned long    encode_status.encode_lines_extra;         // 行后没有编码完的，需要额外行数目
 
 
 /*
@@ -131,10 +123,10 @@ wsgets (
 
 /*
  * Write a line of text, adding a newline.
- * Return FALSE if the write fails.
+ * Return false if the write fails.
  */
 
-static BOOL
+static bool
 wsputs (
     char        *buf,
     int         size,
@@ -144,10 +136,10 @@ wsputs (
     buf[size++] = splite_char;
     if (!outfile_stream.write(buf, size)) {
         fprintf(stderr, "Error: failed to wsputs write.\n");
-        return (FALSE);
+        return (false);
     }
 
-    return (TRUE);
+    return (true);
 }
 
 
@@ -191,40 +183,42 @@ whitespace_storage (
 
 static void
 encode_buffer_load (
+    ENCODE_STATUS_S &encode_status,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream
 ) {
-    if (wsgets (encode_buffer, sizeof(encode_buffer), infile_stream, outfile_stream) == NULL) {
-        encode_buffer[0] = '\0';
-        encode_lines_extra++;
+    if (wsgets (encode_status.encode_buffer, sizeof(encode_status.encode_buffer), infile_stream, outfile_stream) == NULL) {
+        encode_status.encode_buffer[0] = '\0';
+        encode_status.encode_lines_extra++;
     }
 
-    encode_buffer_length = strlen (encode_buffer);
+    encode_status.encode_buffer_length = strlen (encode_status.encode_buffer);
 
-    encode_buffer_column = 0;
-    for (int i=0; encode_buffer[i] != '\0'; i++) {
-        if (encode_buffer[i] == '\t') {
-            encode_buffer_column = tabpos (encode_buffer_column);
+    encode_status.encode_buffer_column = 0;
+    for (int i=0; encode_status.encode_buffer[i] != '\0'; i++) {
+        if (encode_status.encode_buffer[i] == '\t') {
+            encode_status.encode_buffer_column = tabpos (encode_status.encode_buffer_column);
         } else {
-            encode_buffer_column++;
+            encode_status.encode_buffer_column++;
         }
     }
 
-    encode_buffer_loaded = TRUE;
-    encode_needs_tab = FALSE;
+    encode_status.encode_buffer_loaded = true;
+    encode_status.encode_needs_tab = false;
 }
 
 /*
  * Append whitespace to the loaded buffer, if there is room.
  */
 
-static BOOL
+static bool
 encode_append_whitespace (
+    ENCODE_STATUS_S &encode_status,
     int     nsp
 ) {
-    int col = encode_buffer_column;
+    int col = encode_status.encode_buffer_column;
 
-    if (encode_needs_tab) {
+    if (encode_status.encode_needs_tab) {
         col = tabpos (col);
     }
 
@@ -235,29 +229,29 @@ encode_append_whitespace (
     }
 
     if (col >= line_length) {
-        return (FALSE);
+        return (false);
     }
 
-    if (encode_needs_tab) {
-        encode_buffer[encode_buffer_length++] = '\t';
-        encode_buffer_column = tabpos (encode_buffer_column);
+    if (encode_status.encode_needs_tab) {
+        encode_status.encode_buffer[encode_status.encode_buffer_length++] = '\t';
+        encode_status.encode_buffer_column = tabpos (encode_status.encode_buffer_column);
     }
 
     if (nsp == 0) {
-        encode_buffer[encode_buffer_length++] = '\t';
-        encode_buffer_column = tabpos (encode_buffer_column);
-        encode_needs_tab = FALSE;
+        encode_status.encode_buffer[encode_status.encode_buffer_length++] = '\t';
+        encode_status.encode_buffer_column = tabpos (encode_status.encode_buffer_column);
+        encode_status.encode_needs_tab = false;
     } else {
         int i;
         for (i=0; i<nsp; i++) {
-            encode_buffer[encode_buffer_length++] = ' ';
-            encode_buffer_column++;
+            encode_status.encode_buffer[encode_status.encode_buffer_length++] = ' ';
+            encode_status.encode_buffer_column++;
         }
-        encode_needs_tab = TRUE;
+        encode_status.encode_needs_tab = true;
     }
 
-    encode_buffer[encode_buffer_length] = '\0';
-    return (TRUE);
+    encode_status.encode_buffer[encode_status.encode_buffer_length] = '\0';
+    return (true);
 }
 
 
@@ -265,46 +259,47 @@ encode_append_whitespace (
  * Write a value into the text.
  */
 
-static BOOL
+static bool
 encode_write_value (
+    ENCODE_STATUS_S &encode_status,
     int     val,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream
 ) {
-    if (!encode_buffer_loaded) {
-        encode_buffer_load (infile_stream, outfile_stream);
+    if (!encode_status.encode_buffer_loaded) {
+        encode_buffer_load (encode_status, infile_stream, outfile_stream);
     }
 
     // 加密空白以Tab开头
-    if (!encode_first_tab) {                                                /* Tab shows start of data */
-        while (tabpos (encode_buffer_column) >= line_length) {
-            if (!wsputs (encode_buffer, strlen(encode_buffer), outfile_stream)) {
-                return (FALSE);
+    if (!encode_status.encode_first_tab) {                                                /* Tab shows start of data */
+        while (tabpos (encode_status.encode_buffer_column) >= line_length) {
+            if (!wsputs (encode_status.encode_buffer, strlen(encode_status.encode_buffer), outfile_stream)) {
+                return (false);
             }
-            encode_buffer_load (infile_stream, outfile_stream);
+            encode_buffer_load (encode_status, infile_stream, outfile_stream);
         }
 
-        encode_buffer[encode_buffer_length++] = '\t';
-        encode_buffer[encode_buffer_length] = '\0';
-        encode_buffer_column = tabpos (encode_buffer_column);
-        encode_first_tab = TRUE;
+        encode_status.encode_buffer[encode_status.encode_buffer_length++] = '\t';
+        encode_status.encode_buffer[encode_status.encode_buffer_length] = '\0';
+        encode_status.encode_buffer_column = tabpos (encode_status.encode_buffer_column);
+        encode_status.encode_first_tab = true;
     }
 
     /* Reverse the bit ordering */
     int nspc = ((val & 1) << 2) | (val & 2) | ((val & 4) >> 2);
 
-    while (!encode_append_whitespace (nspc)) {
-        if (!wsputs (encode_buffer, strlen(encode_buffer), outfile_stream)) {
-            return (FALSE);
+    while (!encode_append_whitespace (encode_status, nspc)) {
+        if (!wsputs (encode_status.encode_buffer, strlen(encode_status.encode_buffer), outfile_stream)) {
+            return (false);
         }
-        encode_buffer_load (infile_stream, outfile_stream);
+        encode_buffer_load (encode_status, infile_stream, outfile_stream);
     }
 
-    if (encode_lines_extra == 0) {
-        encode_bits_available += 3;
+    if (encode_status.encode_lines_extra == 0) {
+        encode_status.encode_bits_available += 3;
     }
 
-    return (TRUE);
+    return (true);
 }
 
 
@@ -312,8 +307,9 @@ encode_write_value (
  * Flush the rest of the text to the output.
  */
 
-static BOOL
+static bool
 encode_write_flush (
+    ENCODE_STATUS_S &encode_status,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream,
     char splite_char = '\r'
@@ -321,13 +317,13 @@ encode_write_flush (
     unsigned long n_lo = 0;
     unsigned long n_hi = 0;
 
-    if (encode_buffer_loaded) {
-        if (!wsputs(encode_buffer, strlen(encode_buffer), outfile_stream)) {
-            return (FALSE);
+    if (encode_status.encode_buffer_loaded) {
+        if (!wsputs(encode_status.encode_buffer, strlen(encode_status.encode_buffer), outfile_stream)) {
+            return (false);
         }
-        encode_buffer_loaded = FALSE;
-        encode_buffer_length = 0;
-        encode_buffer_column = 0;
+        encode_status.encode_buffer_loaded = false;
+        encode_status.encode_buffer_length = 0;
+        encode_status.encode_buffer_column = 0;
     }
 
 //  std::string str;
@@ -336,12 +332,12 @@ encode_write_flush (
 //      whitespace_storage (str.c_str(), &n_lo, &n_hi);
 //
 //      if (!outfile_stream.write(/*tmp_buf, infile_stream.gcount()*/str.c_str(), str.size()))
-//          return (FALSE);
+//          return (false);
 //  }
 
-    encode_bits_available += (n_lo + n_hi) / 2;
+    encode_status.encode_bits_available += (n_lo + n_hi) / 2;
 
-    return (TRUE);
+    return (true);
 }
 
 
@@ -349,21 +345,20 @@ encode_write_flush (
  * Initialize the encoding routines.
  */
 
-void
-encode_init (void)
+void encode_init(ENCODE_STATUS_S &encode_status)
 {
-    encode_bit_count = 0;
-    encode_value = 0;
-    encode_buffer_loaded = FALSE;
-    encode_buffer_length = 0;
-    encode_buffer_column = 0;
-    encode_first_tab = FALSE;
-    encode_bits_used = 0;
-    encode_bits_available = 0;
-    encode_lines_extra = 0;
-    encode_needs_tab = FALSE;
+//  encode_status.encode_bit_count = 0;
+//  encode_status.encode_value = 0;
+//  encode_status.encode_buffer_loaded = false;
+//  encode_status.encode_buffer_length = 0;
+//  encode_status.encode_buffer_column = 0;
+//  encode_status.encode_first_tab = false;
+//  encode_status.encode_bits_used = 0;
+//  encode_status.encode_bits_available = 0;
+//  encode_status.encode_lines_extra = 0;
+//  encode_status.encode_needs_tab = false;
 
-    memset(encode_buffer, 0, sizeof(encode_buffer));
+    memset(&encode_status, 0, sizeof(encode_status));
 }
 
 
@@ -371,25 +366,26 @@ encode_init (void)
  * Encode a single bit.
  */
 
-BOOL
+bool
 encode_bit (
+    ENCODE_STATUS_S &encode_status,
     int     bit,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream
 ) {
-    encode_value = (encode_value << 1) | bit;
-    encode_bits_used++;
+    encode_status.encode_value = (encode_status.encode_value << 1) | bit;
+    encode_status.encode_bits_used++;
 
-    if (++encode_bit_count == 3) {
-        if (!encode_write_value (encode_value, infile_stream, outfile_stream)) {
-            return (FALSE);
+    if (++encode_status.encode_bit_count == 3) {
+        if (!encode_write_value (encode_status, encode_status.encode_value, infile_stream, outfile_stream)) {
+            return (false);
         }
 
-        encode_value = 0;
-        encode_bit_count = 0;
+        encode_status.encode_value = 0;
+        encode_status.encode_bit_count = 0;
     }
 
-    return (TRUE);
+    return (true);
 }
 
 
@@ -397,50 +393,91 @@ encode_bit (
  * Flush the contents of the encoding routines.
  */
 
-BOOL
+bool
 encode_flush (
+    ENCODE_STATUS_S &encode_status,
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream,
     std::string &encodeBuffer
 ) {
-    if (encode_bit_count > 0) {
+    if (encode_status.encode_bit_count > 0) {
 
         // 3 bits进行数据对齐
-        while (encode_bit_count < 3) {  /* Pad to 3 bits */
-            encode_value <<= 1;
-            encode_bit_count++;
+        while (encode_status.encode_bit_count < 3) {  /* Pad to 3 bits */
+            encode_status.encode_value <<= 1;
+            encode_status.encode_bit_count++;
         }
 
-        if (!encode_write_value (encode_value, infile_stream, outfile_stream)) {
-            return (FALSE);
+        if (!encode_write_value (encode_status, encode_status.encode_value, infile_stream, outfile_stream)) {
+            return (false);
         }
     }
 
-    if (!encode_write_flush (infile_stream, outfile_stream)) {
-        return (FALSE);
+    if (!encode_write_flush (encode_status, infile_stream, outfile_stream)) {
+        return (false);
     }
 
-    encodeBuffer = encode_buffer;
+    encodeBuffer = encode_status.encode_buffer;
 
 //  if (!quiet_flag) {
-//      if (encode_lines_extra > 0) {
+//      if (encode_status.encode_lines_extra > 0) {
 //          fprintf (stderr, "Message exceeded available space by approximately %.2f%%.\n",
-//                   ((double) encode_bits_used / encode_bits_available - 1.0) * 100.0);
+//                   ((double) encode_status.encode_bits_used / encode_status.encode_bits_available - 1.0) * 100.0);
 //
-//          fprintf (stderr, "An extra %ld lines were added.\n", encode_lines_extra);
+//          fprintf (stderr, "An extra %ld lines were added.\n", encode_status.encode_lines_extra);
 //      } else {
 //          fprintf (stderr, "Message used approximately %.2f%% of available space.\n",
-//               (double) encode_bits_used / encode_bits_available * 100.0);
+//               (double) encode_status.encode_bits_used / encode_status.encode_bits_available * 100.0);
 //      }
 //  }
 
-    return (TRUE);
+    return (true);
+}
+
+static int
+character_encode(ENCODE_STATUS_S &encode_status,
+                 unsigned char c,
+                 std::istringstream &infile_stream,
+                 std::ostringstream &outfile_stream)
+{
+    for (int i = 0; i < 8; i++)
+    {
+        int bit = ((c & (128 >> i)) != 0) ? 1 : 0;
+        if (!encode_bit (encode_status, bit, infile_stream, outfile_stream)) {
+            return (false);
+        }
+    }
+    return (true);
+}
+
+/**
+ * @brief 对消息进行加密
+ * @param [IN] msg
+ * @param [IN] infile
+ * @param [IN] outfile
+ * @return BOOL
+ * @note
+ */
+int
+message_string_encode(ENCODE_STATUS_S &encode_status,
+                      const char *msg,
+                      std::istringstream &infile_stream,
+                      std::ostringstream &outfile_stream)
+{
+    while (*msg != '\0') {
+        if (!character_encode (encode_status, *msg, infile_stream, outfile_stream)) {
+            return (false);
+        }
+        msg++;
+    }
+
+    return 0;
 }
 
 static int  output_bit_count = 0;
 static int  output_value = 0;
 
-static BOOL
+static bool
 output_bit (
     int     bit,
     std::ostringstream &outfile_stream
@@ -452,14 +489,14 @@ output_bit (
         outfile_stream << (char)output_value;
 //      if (fputc (output_value, outf) == EOF) {
 //          perror ("Output file");
-//          return (FALSE);
+//          return (false);
 //      }
 
         output_value = 0;
         output_bit_count = 0;
     }
 
-    return (TRUE);
+    return (true);
 }
 
 
@@ -467,7 +504,7 @@ output_bit (
  * Decode the space count into actual bits.
  */
 
-static BOOL
+static bool
 decode_bits (
     int     spc,
     std::ostringstream &outfile_stream
@@ -476,7 +513,7 @@ decode_bits (
 
     if (spc > 7) {
         fprintf (stderr, "Illegal encoding of %d spaces\n", spc);
-        return (FALSE);
+        return (false);
     }
 
     if ((spc & 1) != 0) {
@@ -490,26 +527,26 @@ decode_bits (
     }
 
     if (!output_bit (b1, outfile_stream)) {
-        return (FALSE);
+        return (false);
     }
     if (!output_bit (b2, outfile_stream)) {
-        return (FALSE);
+        return (false);
     }
     if (!output_bit (b3, outfile_stream)) {
-        return (FALSE);
+        return (false);
     }
 
 //  if (!decrypt_bit (b1, outf)) {
-//      return (FALSE);
+//      return (false);
 //  }
 //  if (!decrypt_bit (b2, outf)) {
-//      return (FALSE);
+//      return (false);
 //  }
 //  if (!decrypt_bit (b3, outf)) {
-//      return (FALSE);
+//      return (false);
 //  }
 
-    return (TRUE);
+    return (true);
 }
 
 
@@ -517,7 +554,7 @@ decode_bits (
  * Decode the whitespace contained in the string.
  */
 
-static BOOL
+static bool
 decode_whitespace (
     const char  *s,
     std::ostringstream &outfile_stream
@@ -529,14 +566,14 @@ decode_whitespace (
             spc++;
         } else if (*s == '\t') {
             if (!decode_bits (spc, outfile_stream)) {
-                return (FALSE);
+                return (false);
             }
             spc = 0;
         } else if (*s == '\0') {
             if (spc > 0 && !decode_bits (spc, outfile_stream)) {
-                return (FALSE);
+                return (false);
             }
-            return (TRUE);
+            return (true);
         }
     }
 }
@@ -545,14 +582,14 @@ decode_whitespace (
  * Extract a message from the input stream.
  */
 
-BOOL
+bool
 message_extract (
     std::istringstream &infile_stream,
     std::ostringstream &outfile_stream,
-    int     text_encode_mode = 1,
-    char splite_char = '\r'
+    int     text_encode_mode,
+    char splite_char
 ) {
-    BOOL start_tab_found = FALSE;
+    bool start_tab_found = false;
 
     //decrypt_init ();
 
@@ -616,7 +653,7 @@ message_extract (
         }
 
         if (!start_tab_found && *last_ws == '\t') {
-            start_tab_found = TRUE;
+            start_tab_found = true;
             last_ws++;
             if (*last_ws == '\0') {
                 continue;
@@ -625,7 +662,7 @@ message_extract (
 
         if (!decode_whitespace (last_ws, outfile_stream)) {
             fprintf(stderr, "Failed to decode whitespace.\n");
-            return (FALSE);
+            return (false);
         }
     }
 

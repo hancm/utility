@@ -4,68 +4,7 @@
 #include <string>
 
 #include "ice.h"
-
-extern void encode_init (void);
-
-extern int encode_bit (
-    int     bit,
-    std::istringstream &infile_stream,
-    std::ostringstream &outfile_stream
-);
-
-extern int
-encode_flush (
-    std::istringstream &infile_stream,
-    std::ostringstream &outfile_stream,
-    std::string &encodeBuffer
-);
-
-extern int
-message_extract (
-    std::istringstream &infile_stream,
-    std::ostringstream &outfile_stream,
-    int     text_encode_mode = 1,
-    char splite_char = '\r'
-);
-
-int
-character_encode(unsigned char c,
-                 std::istringstream &infile_stream,
-                 std::ostringstream &outfile_stream)
-{
-    for (int i = 0; i < 8; i++)
-    {
-        int bit = ((c & (128 >> i)) != 0) ? 1 : 0;
-        if (!encode_bit (bit, infile_stream, outfile_stream)) {
-            return (false);
-        }
-    }
-    return (true);
-}
-
-/**
- * @brief 对消息进行加密
- * @param [IN] msg
- * @param [IN] infile
- * @param [IN] outfile
- * @return BOOL
- * @note
- */
-int
-message_string_encode(const char *msg,
-                      std::istringstream &infile_stream,
-                      std::ostringstream &outfile_stream)
-{
-//  compress_init ();
-    while (*msg != '\0') {
-        if (!character_encode (*msg, infile_stream, outfile_stream)) {
-            return (false);
-        }
-        msg++;
-    }
-
-    return 0;//(compress_flush (infile, outfile));
-}
+#include "encode.h"
 
 int main(void)
 {
@@ -89,12 +28,13 @@ int main(void)
     std::istringstream infile_stream;
     std::ostringstream outfile_stream;
 
-    encode_init();
+    ENCODE_STATUS_S encode_status;
+    encode_init(encode_status);
 
-    message_string_encode("123456789hancm123243647560-0-08090028804804hancm韩长鸣", infile_stream, outfile_stream);
+    message_string_encode(encode_status, "123456789hancm123243647560-0-08090028804804hancm韩长鸣", infile_stream, outfile_stream);
 
     std::string encodeBuffer;
-    encode_flush(infile_stream, outfile_stream, encodeBuffer);
+    encode_flush(encode_status, infile_stream, outfile_stream, encodeBuffer);
 
     std::cout << "infile stream: " << infile_stream.str() << "\noutfile stream size: "
               << outfile_stream.str().size() << "\nencode buffer size: " << encodeBuffer.size() << std::endl;
