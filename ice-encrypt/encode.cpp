@@ -409,7 +409,7 @@ decode_whitespace (
 
 int
 message_extract(const std::string &encode_string_info,
-                std::string &encode_output)
+                std::string &encode_message)
 {
     // 获取数据
     std::istringstream infile_stream(encode_string_info);
@@ -463,7 +463,7 @@ message_extract(const std::string &encode_string_info,
             }
         }
 
-        if (!decode_whitespace(last_ws, output_bit_count, output_value, encode_output)) {
+        if (!decode_whitespace(last_ws, output_bit_count, output_value, encode_message)) {
             fprintf(stderr, "Failed to decode whitespace.\n");
             return -1;
         }

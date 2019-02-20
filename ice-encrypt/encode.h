@@ -19,6 +19,6 @@ bool encode_bit(ENCODE_STATUS_S &encode_status, int bit);
 bool encode_flush(ENCODE_STATUS_S &encode_status, std::string &encode_output);
 
 int message_string_encode(const std::string &encode_message, std::string &encode_output);
-int message_extract(const std::string &encode_string_info, std::string &encode_output);
+int message_extract(const std::string &encode_string_info, std::string &encode_message);
 
 #endif /* __ENCODE_H__ */
