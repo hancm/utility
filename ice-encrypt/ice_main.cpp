@@ -48,11 +48,11 @@ int main(void)
 //  std::cout << "Ret: " << iRet << " decode: " << encode_output << std::endl;
 
     std::string compress_output_string;
-    compress_string("h", compress_output_string);
+    compress_string("hancm", compress_output_string);
     std::cout << "output: " << compress_output_string << std::endl;
 
-    std::string uncompress_out;
-    uncompress_init();
+    COMPRESS_STATUS_S compress_status;
+    uncompress_init(compress_status);
     for (int i = 0; i < compress_output_string.size(); ++i) {
         int bit = 0;
         if ('0' == compress_output_string[i]) {
@@ -60,8 +60,11 @@ int main(void)
         } else if ('1' == compress_output_string[i]) {
             bit = 1;
         }
-        uncompress_bit(bit, uncompress_out);
+        uncompress_bit(compress_status, bit);
     }
+
+    std::string uncompress_out;
+    uncompress_flush(compress_status, uncompress_out);
     std::cout << "uncompress_out: " << uncompress_out << std::endl;
 
     return 0;

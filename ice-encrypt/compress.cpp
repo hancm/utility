@@ -75,49 +75,21 @@ int compress_string(const std::string &plain_string, std::string &compress_outpu
     return 0;
 }
 
-static int  output_bit_count;
-static int  output_value;
-
-static void output_init(void)
+static bool output_bit(COMPRESS_STATUS_S &compress_status, int bit)
 {
-    output_bit_count = 0;
-    output_value = 0;
-}
-
-static bool output_bit(int bit, std::string &uncompress_out)
-{
-    output_value = (output_value << 1) | bit;
-    if (++output_bit_count == 8) {
-        uncompress_out.push_back((char)output_value);
-//      outfile_stream << (char)output_value;
-//      if (fputc (output_value, outf) == EOF) {
-//      perror ("Output file");
-//      return (false);
-//      }
-
-        output_value = 0;
-        output_bit_count = 0;
+    compress_status.output_value = (compress_status.output_value << 1) | bit;
+    if (++compress_status.output_bit_count == 8) {
+        compress_status.uncompress_out.push_back((char)compress_status.output_value);
+        compress_status.output_value = 0;
+        compress_status.output_bit_count = 0;
     }
 
     return (true);
 }
 
-static bool output_flush()
+void uncompress_init(COMPRESS_STATUS_S &compress_status)
 {
-    if (output_bit_count > 2) {
-        fprintf (stderr, "Warning: residual of %d bits not output\n", output_bit_count);
-    }
-
-    return (true);
-}
-
-static int  uncompress_bit_count;
-static char uncompress_value[256];
-
-void uncompress_init(void)
-{
-    uncompress_bit_count = 0;
-    output_init ();
+    compress_status = COMPRESS_STATUS_S();
 }
 
 static int huffcode_find(const char  *str)
@@ -130,30 +102,24 @@ static int huffcode_find(const char  *str)
     return (-1);
 }
 
-bool uncompress_bit(int bit, std::string &uncompress_out)
+bool uncompress_bit(COMPRESS_STATUS_S &compress_status, int bit)
 {
-    int code;
-
-//  if (!compress_flag)
-//      return (output_bit (bit, outf));
-
-    uncompress_value[uncompress_bit_count++] = bit ? '1' : '0';
-    uncompress_value[uncompress_bit_count] = '\0';
-    std::cout << "uncompress_value: " << uncompress_value << std::endl;
-
-    if ((code = huffcode_find (uncompress_value)) >= 0) {
+    compress_status.uncompress_value[compress_status.uncompress_bit_count++] = bit ? '1' : '0';
+    compress_status.uncompress_value[compress_status.uncompress_bit_count] = '\0';
+    int code = 0;
+    if ((code = huffcode_find (compress_status.uncompress_value)) >= 0) {
         for (int i=0; i<8; i++) {
             int b = ((code & (128 >> i)) != 0) ? 1 : 0;
 
-            if (!output_bit (b, uncompress_out)) {
+            if (!output_bit(compress_status, b)) {
                 return (false);
             }
         }
 
-        uncompress_bit_count = 0;
+        compress_status.uncompress_bit_count = 0;
     }
 
-    if (uncompress_bit_count >= 255) {
+    if (compress_status.uncompress_bit_count >= 255) {
         fprintf (stderr, "Error: Huffman uncompress buffer overflow\n");
         return (false);
     }
@@ -161,11 +127,12 @@ bool uncompress_bit(int bit, std::string &uncompress_out)
     return (true);
 }
 
-bool uncompress_flush()
+bool uncompress_flush(COMPRESS_STATUS_S &compress_status, std::string &uncompress_output_string)
 {
-    if (uncompress_bit_count > 2) {
-        fprintf (stderr, "Warning: residual of %d bits not uncompressed\n", uncompress_bit_count);
+    if (compress_status.uncompress_bit_count > 2) {
+        fprintf (stderr, "Warning: residual of %d bits not uncompressed\n", compress_status.uncompress_bit_count);
     }
+    uncompress_output_string = compress_status.uncompress_out;
 
     return true;
 }
