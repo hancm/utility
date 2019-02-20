@@ -275,8 +275,7 @@ encode_flush (
 }
 
 static int
-character_encode(ENCODE_STATUS_S &encode_status,
-                 unsigned char c)
+character_encode(ENCODE_STATUS_S &encode_status, unsigned char c)
 {
     for (int i = 0; i < 8; i++)
     {
