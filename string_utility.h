@@ -36,13 +36,13 @@ namespace StringUtil
      */
     bool CheckHasNotOfChineseOrAlnumOrUnderline(const std::string &text);
 
-/**
- * @brief
- * @param [IN] T 检查字符串是否为某种类型
- * @param [IN] text
- * @return bool
- * @note
- */
+	/**
+	 * @brief
+	 * @param [IN] T 检查字符串是否为某种类型
+	 * @param [IN] text
+	 * @return bool
+	 * @note
+	 */
     template<typename T>
     bool IsValue(const std::string &text)
     {
@@ -60,5 +60,8 @@ namespace StringUtil
     }
 
     bool IsInt(const std::string &text);
+	
+	void string_to_bitstr(const std::string &charString, std::string &bitString);
+	int bitstr_to_string(const std::string &bitString, std::string &charString);
 
 } /* namespace StringUtil */

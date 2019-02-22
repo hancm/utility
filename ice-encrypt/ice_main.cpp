@@ -209,79 +209,74 @@ int main(void)
     /**
      * 压缩
      */
-//  std::string compress_output_string;
-//  compress_string("hancm", compress_output_string);
-//  std::cout << "output: " << compress_output_string << std::endl;
-//
-//  int bits = 0;
+    std::string compress_output_string;
+    compress_string("hancmsfefjoejf20123432", compress_output_string);
+    std::cout << "output: " << compress_output_string << std::endl;
+
 //  std::string strOutputBuf;
-//  binstr_to_string(compress_output_string, strOutputBuf, bits);
-//  std::cout << "string: " << strOutputBuf << " Bits: " << bits << std::endl;
+//  binstr_to_string(compress_output_string, strOutputBuf);
+//  std::cout << "string: " << strOutputBuf << std::endl;
 //
 //  std::string binStr;
-//  string_to_binstr(strOutputBuf, strOutputBuf.size() * 8, binStr);
+//  string_to_binstr(strOutputBuf, binStr);
 //  compress_output_string = binStr;
 //  std::cout << "compress: " << compress_output_string << std::endl;
-//
-//  COMPRESS_STATUS_S compress_status;
-//  uncompress_init(compress_status);
-//  for (int i = 0; i < compress_output_string.size(); ++i) {
-//      int bit = 0;
-//      if ('0' == compress_output_string[i]) {
-//          bit = 0;
-//      } else if ('1' == compress_output_string[i]) {
-//          bit = 1;
-//      }
-//      uncompress_bit(compress_status, bit);
-//  }
-//
-//  std::string uncompress_out;
-//  uncompress_flush(compress_status, uncompress_out);
-//  std::cout << "uncompress_out: " << uncompress_out << std::endl;
+
+    COMPRESS_STATUS_S compress_status;
+    uncompress_init(compress_status);
+    for (int i = 0; i < compress_output_string.size(); ++i) {
+        int bit = 0;
+        if ('0' == compress_output_string[i]) {
+            bit = 0;
+        } else if ('1' == compress_output_string[i]) {
+            bit = 1;
+        }
+        uncompress_bit(compress_status, bit);
+    }
+
+    std::string uncompress_out;
+    uncompress_flush(compress_status, uncompress_out);
+    std::cout << "uncompress_out: " << uncompress_out << std::endl;
 
     /**
      * 加解密
      */
-    std::string binString;
-    string_to_binstr("hancm韩长鸣", binString);
-    std::cout << "binString: " << binString << std::endl;
-
-    // 加密
-    ENCRYPT_STATUS_S encrypt_status;
-    encrypt_init(encrypt_status, "hancm");
-    for (size_t i = 0; i < binString.size(); ++i)
-    {
-        int bit = 0;
-        if ('0' == binString[i]) {
-            bit = 0;
-        } else if ('1' == binString[i]) {
-            bit = 1;
-        }
-        encrypt_bit(encrypt_status, bit);
-    }
-    std::string encrypt_output_string;
-    encrypt_flush(encrypt_status, encrypt_output_string);
-    std::cout << "encrypt output: " << encrypt_output_string << std::endl;
-
-//  std::string charString;
-//  binstr_to_string(binString, charString);
-//  std::cout << "charString: " << charString << std::endl;
-
-    // 解密
-    decrypt_init(encrypt_status, "hancm");
-    for (size_t i = 0; i < encrypt_output_string.size(); ++i)
-    {
-        int bit = 0;
-        if ('0' == encrypt_output_string[i]) {
-            bit = 0;
-        } else if ('1' == encrypt_output_string[i]) {
-            bit = 1;
-        }
-        decrypt_bit(encrypt_status, bit);
-    }
-    std::string decrypt_output_string;
-    decrypt_flush(encrypt_status, decrypt_output_string);
-    std::cout << "decrypt output: " << decrypt_output_string << std::endl;
+//  std::string binString;
+//  string_to_binstr("hancm韩长鸣", binString);
+//  std::cout << "binString: " << binString << std::endl;
+//
+//  // 加密
+//  ENCRYPT_STATUS_S encrypt_status;
+//  encrypt_init(encrypt_status, "hancm");
+//  for (size_t i = 0; i < binString.size(); ++i)
+//  {
+//      int bit = 0;
+//      if ('0' == binString[i]) {
+//          bit = 0;
+//      } else if ('1' == binString[i]) {
+//          bit = 1;
+//      }
+//      encrypt_bit(encrypt_status, bit);
+//  }
+//  std::string encrypt_output_string;
+//  encrypt_flush(encrypt_status, encrypt_output_string);
+//  std::cout << "encrypt output: " << encrypt_output_string << std::endl;
+//
+//  // 解密
+//  decrypt_init(encrypt_status, "hancm");
+//  for (size_t i = 0; i < encrypt_output_string.size(); ++i)
+//  {
+//      int bit = 0;
+//      if ('0' == encrypt_output_string[i]) {
+//          bit = 0;
+//      } else if ('1' == encrypt_output_string[i]) {
+//          bit = 1;
+//      }
+//      decrypt_bit(encrypt_status, bit);
+//  }
+//  std::string decrypt_output_string;
+//  decrypt_flush(encrypt_status, decrypt_output_string);
+//  std::cout << "decrypt output: " << decrypt_output_string << std::endl;
 
     return 0;
 }

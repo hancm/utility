@@ -98,4 +98,58 @@ bool IsInt(const std::string &text)
     return IsValue<int>(text);
 }
 
+static void char_to_bitstr(unsigned char c, std::string &bitString)
+{
+    for (int i = 0; i < 8; i++)
+    {
+        char bit = ((c & (128 >> i)) != 0) ? '1' : '0';
+        bitString.push_back(bit);
+    }
+}
+
+void string_to_bitstr(const std::string &charString, std::string &bitString)
+{
+    for (size_t i = 0; i < charString.size(); ++i)
+    {
+        char_to_bitstr(charString[i], bitString);
+    }
+}
+
+static
+void output_bit(int bit,
+                int &output_bit_count,
+                int &output_value,
+                std::string &charString)
+{
+    output_value = (output_value << 1) | bit;
+    if (++output_bit_count == 8) {
+        charString.push_back((char)output_value);
+        output_value = 0;
+        output_bit_count = 0;
+    }
+}
+
+int bitstr_to_string(const std::string &bitString, std::string &charString)
+{
+    charString.clear();
+    if (0 != bitString.size() % 8)
+    {
+        return -1;
+    }
+
+    int output_bit_count = 0;
+    int output_value = 0;
+    for (size_t i = 0; i < bitString.size(); ++i)
+    {
+        if ('0' != bitString[i] && '1' != bitString[i])
+        {
+            LOG_ERROR("Invalid value: {}", bitString[i]);
+            return -1;
+        }
+        output_bit(bitString[i] - '0', output_bit_count, output_value, charString);
+    }
+
+    return 0;
+}
+
 } /* namespace StringUtil */
