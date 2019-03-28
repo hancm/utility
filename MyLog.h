@@ -34,6 +34,7 @@ class MyLog
 public:
     MyLog(const std::string &file_name, const char *logName = MY_LOG_NAME) noexcept
     {
+//      destroy();
         init(file_name, logName);
     }
 
