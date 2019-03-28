@@ -20,7 +20,7 @@
 #endif
 
 #include "MyLog.h"
-#include "FileUtility.h"
+#include "file_utility.h"
 
 using namespace std;
 
@@ -224,7 +224,7 @@ string FileUtility::env(const string &varname)
  * @param path path to the file, which existence is checked.
  * @return returns true if the file is a file and it exists.
  */
-bool FileUtility::fileExists(const string& path)
+bool FileUtility::fileExists(const string &path)
 {
     f_statbuf fileInfo;
     f_string _path = encodeName(path);
@@ -241,7 +241,7 @@ bool FileUtility::fileExists(const string& path)
  * @param path path to the directory, which existence is checked.
  * @return returns true if the directory is a directory and it exists.
  */
-bool FileUtility::directoryExists(const string& path)
+bool FileUtility::directoryExists(const string &path)
 {
     f_string _path = encodeName(path);
 #ifdef _WIN32
@@ -328,7 +328,7 @@ string FileUtility::directory(const string& path)
  *        Default value is <code>false</code>.
  * @return returns full path.
  */
-string FileUtility::path(const string& directory, const string& relativePath)
+string FileUtility::path(const string &directory, const string &relativePath)
 {
     string dir(directory);
     if(!dir.empty() && (dir[dir.size() - 1] == '/' || dir[dir.size() - 1] == '\\')) {
@@ -373,7 +373,7 @@ string FileUtility::tempFileName()
     return path;
 }
 
-int FileUtility::readFileInfo(const std::string &strFilePath, std::string &vecFileBuf)
+int FileUtility::readFileInfo(const std::string &strFilePath, std::string &fileBuf)
 {
     std::ifstream inFile(strFilePath.c_str(), std::ios::in | std::ios::binary);
     if (!inFile) {
@@ -385,9 +385,9 @@ int FileUtility::readFileInfo(const std::string &strFilePath, std::string &vecFi
     size_t fileSize = inFile.tellg();
     inFile.seekg(0, std::ios::beg);
 
-    vecFileBuf.clear();
-    vecFileBuf.resize(fileSize);
-    if (!inFile.read(&vecFileBuf[0], fileSize)) {
+    fileBuf.clear();
+    fileBuf.resize(fileSize);
+    if (!inFile.read(&fileBuf[0], fileSize)) {
         LOG_ERROR("Failed to read file: {}, size: {}.", strFilePath, fileSize);
         inFile.close();
         return -1;
@@ -438,7 +438,7 @@ int FileUtility::copyFile(const char *srcFilePath, const char *dstFilePath)
  * @param mode directory access rights, optional parameter, default value 0700 (owner: rwx, group: ---, others: ---)
  * @throws IOException exception is thrown if the directory creation failed.
  */
-int FileUtility::createDirectory(const string& path)
+int FileUtility::createDirectory(const string &path)
 {
     if(path.empty())
     {
