@@ -14,21 +14,9 @@
 // 1：ERROR级别
 #define _MYLOG_LEVEL_   0
 
-// 在spdlog.h之前定义才有效
-// SPDLOG_TRACE调试宏
-#ifndef SPDLOG_TRACE_ON
-#define SPDLOG_TRACE_ON
-#endif
-
-// SPDLOG_DEBUG调试宏
-#ifndef SPDLOG_DEBUG_ON
-#define SPDLOG_DEBUG_ON
-#endif
-
-// Linux使用CLOCK_REALTIME_COARSE
-#ifndef SPDLOG_CLOCK_COARSE
-#define SPDLOG_CLOCK_COARSE
-#endif
+//
+// SPDLOG宏定义必须在spdlog.h之前定义才有效
+//
 
 // 日志级别名称
 #ifndef SPDLOG_LEVEL_NAMES
@@ -55,7 +43,6 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
-                logger->set_log_err_info(format);
                 logger->trace(format, args...);
             }
         } catch (...) {
@@ -69,7 +56,6 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
-                logger->set_log_err_info(format);
                 logger->debug(format, args...);
             }
         } catch (...) {
@@ -83,7 +69,6 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
-                logger->set_log_err_info(format);
                 logger->info(format, args...);
             }
         } catch (...) {
@@ -97,7 +82,6 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
-                logger->set_log_err_info(format);
                 logger->warn(format, args...);
             }
         } catch (...) {
@@ -111,7 +95,6 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
-                logger->set_log_err_info(format);
                 logger->error(format, args...);
             }
         } catch (...) {
@@ -125,7 +108,6 @@ public:
         try {
             std::shared_ptr<spdlog::logger> logger = getLogger(logName);
             if (logger) {
-                logger->set_log_err_info(format);
                 logger->critical(format, args...);
             }
         } catch (...) {
