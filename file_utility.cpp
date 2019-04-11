@@ -5,9 +5,6 @@
 #include <ctime>
 #include <string>
 
-#include <sys/stat.h>
-#include <sys/types.h>
-
 #ifdef _WIN32
     #include <windows.h>
     #include <direct.h>
@@ -15,16 +12,23 @@
     #include <unistd.h>
     #include <dirent.h>
     #include <sys/param.h>
+    #include <sys/stat.h>
+    #include <sys/types.h>
 #endif
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
 #include "MyLog.h"
-#include "File.h"
+#include "file_utility.h"
 
 using namespace std;
-using namespace MyUtilityLib;
+
+#ifdef _WIN32
+typedef std::wstring f_string;
+#else
+typedef std::string f_string;
+#endif
 
 #ifdef _WIN32
 #define f_stat      _wstat
@@ -48,9 +52,10 @@ typedef struct stat f_statbuf;
  * Note! If non-ASCII characters are used we assume a proper LANG value!!!
  *
  * @param str_in The string to be converted.
+ * @param to_UTF: true: 转换输入字符串到utf-8; false: 将输入的utf-8字符串转换为本地字符集字符串
  * @return Returns the input string in UTF-8.
  */
-string File::convertUTF8(const string &str_in, bool to_UTF)
+static string convertUTF8(const string &str_in, bool to_UTF)
 {
     string charset("C");
     char *env_lang = getenv("LANG");
@@ -113,45 +118,13 @@ string File::convertUTF8(const string &str_in, bool to_UTF)
 }
 #endif
 
-// stack<string> File::tempFiles;
-
-string File::cwd()
-{
-#ifdef _WIN32
-#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
-    return "./";
-#endif
-    wchar_t *path = _wgetcwd( 0, 0 );
-#else
-    char *path = getcwd( 0, 0 );
-#endif
-    string ret;
-    if( path )
-        ret = decodeName( path );
-    free( path );
-    return ret;
-}
-
-string File::env(const string &varname)
-{
-#ifdef _WIN32
-#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
-    return string();
-#endif
-    if(wchar_t *var = _wgetenv(encodeName(varname).c_str()))
-#else
-    if(char *var = getenv(encodeName(varname).c_str()))
-#endif
-        return decodeName(var);
-    return string();
-}
-
 /**
  * Encodes path to compatible std lib
+ * 将utf-8字符串转换为本地字符集
  * @param fileName path
  * @return encoded path
  */
-f_string File::encodeName(const string &fileName)
+static f_string encodeName(const string &fileName)
 {
     if(fileName.empty())
         return f_string();
@@ -169,17 +142,18 @@ f_string File::encodeName(const string &fileName)
     CFRelease(ref);
     out.resize(strlen(out.c_str()));
 #else
-    f_string out = convertUTF8(fileName,false);
+    f_string out = convertUTF8(fileName, false);
 #endif
     return out;
 }
 
 /**
  * Decodes path from std lib path
+ * 将本地文件名称转换为UTF-8字符串
  * @param localFileName path
  * @return decoded path
  */
-string File::decodeName(const f_string &localFileName)
+static string decodeName(const f_string &localFileName)
 {
     if(localFileName.empty())
         return string();
@@ -197,9 +171,51 @@ string File::decodeName(const f_string &localFileName)
     CFRelease(ref);
     out.resize(strlen(out.c_str()));
 #else
-    string out = convertUTF8(localFileName,true);
+    string out = convertUTF8(localFileName, true);
 #endif
     return out;
+}
+
+/**
+ * @brief 获取当前工作目录
+ * @return string
+ * @note
+ */
+string FileUtility::cwd()
+{
+#ifdef _WIN32
+#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+    return "./";
+#endif
+    wchar_t *path = _wgetcwd( 0, 0 );
+#else
+    char *path = getcwd( 0, 0 );
+#endif
+    string ret;
+    if( path )
+        ret = decodeName( path );
+    free( path );
+    return ret;
+}
+
+/**
+ * @brief 获取环境变量值
+ * @param [IN] varname
+ * @return string
+ * @note
+ */
+string FileUtility::env(const string &varname)
+{
+#ifdef _WIN32
+#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+    return string();
+#endif
+    if(wchar_t *var = _wgetenv(encodeName(varname).c_str()))
+#else
+    if(char *var = getenv(encodeName(varname).c_str()))
+#endif
+        return decodeName(var);
+    return string();
 }
 
 /**
@@ -208,7 +224,7 @@ string File::decodeName(const f_string &localFileName)
  * @param path path to the file, which existence is checked.
  * @return returns true if the file is a file and it exists.
  */
-bool File::fileExists(const string& path)
+bool FileUtility::fileExists(const string &path)
 {
     f_statbuf fileInfo;
     f_string _path = encodeName(path);
@@ -225,7 +241,7 @@ bool File::fileExists(const string& path)
  * @param path path to the directory, which existence is checked.
  * @return returns true if the directory is a directory and it exists.
  */
-bool File::directoryExists(const string& path)
+bool FileUtility::directoryExists(const string &path)
 {
     f_string _path = encodeName(path);
 #ifdef _WIN32
@@ -243,29 +259,13 @@ bool File::directoryExists(const string& path)
     return (fileInfo.st_mode & S_IFMT) == S_IFDIR;
 }
 
-#ifdef _WIN32
-string File::dllPath(const string &dll)
-{
-#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
-    wstring wdll = File::encodeName(dll);
-    HMODULE handle = GetModuleHandleW(wdll.c_str());
-    wstring path(MAX_PATH, 0);
-    DWORD size = GetModuleFileNameW(handle, &path[0], DWORD(path.size()));
-    path.resize(size);
-    return File::directory(File::decodeName(path)) + "\\";
-#else
-    return "./";
-#endif
-}
-#endif
-
 /**
  * Returns last modified time
  *
  * @param path path which modified time will be checked.
  * @return returns given path modified time.
  */
-tm* File::modifiedTime(const string &path)
+tm* FileUtility::modifiedTime(const string &path)
 {
     f_statbuf fileInfo;
     if(f_stat(encodeName(path).c_str(), &fileInfo) != 0)
@@ -273,7 +273,7 @@ tm* File::modifiedTime(const string &path)
     return gmtime((const time_t*)&fileInfo.st_mtime);
 }
 
-string File::fileExtension(const std::string &path)
+string FileUtility::fileExtension(const std::string &path)
 {
     size_t pos = path.find_last_of(".");
     if(pos == string::npos)
@@ -286,7 +286,7 @@ string File::fileExtension(const std::string &path)
 /**
  * Returns file size
  */
-unsigned long File::fileSize(const string &path)
+size_t FileUtility::fileSize(const string &path)
 {
     f_statbuf fileInfo;
     if(f_stat(encodeName(path).c_str(), &fileInfo) != 0)
@@ -294,38 +294,17 @@ unsigned long File::fileSize(const string &path)
     return fileInfo.st_size;
 }
 
-
 /**
  * Parses file path and returns file name from file full path.
  *
  * @param path full path of the file.
  * @return returns file name from the file full path in UTF-8.
  */
-string File::fileName(const string& path)
+string FileUtility::fileName(const string& path)
 {
     size_t pos = path.find_last_of("/\\");
     return pos == string::npos ? path : path.substr(pos + 1);
 }
-
-#ifdef __APPLE__
-string File::frameworkResourcesPath(const string &name)
-{
-    string result(PATH_MAX, 0);
-    CFStringRef identifier = CFStringCreateWithCString(0, name.c_str(), kCFStringEncodingUTF8);
-    if(CFBundleRef bundle = CFBundleGetBundleWithIdentifier(identifier))
-    {
-        if(CFURLRef url = CFBundleCopyResourcesDirectoryURL(bundle))
-        {
-            CFURLGetFileSystemRepresentation(url, TRUE, (UInt8 *)&result[0], result.size());
-            CFRelease(url);
-        }
-    }
-    CFRelease(identifier);
-    result.resize(strlen(&result[0]));
-    if(!result.empty()) result += "/";
-    return result;
-}
-#endif
 
 /**
  * Parses file path and returns directory from file full path.
@@ -333,7 +312,7 @@ string File::frameworkResourcesPath(const string &name)
  * @param path full path of the file.
  * @return returns directory part of the file full path.
  */
-string File::directory(const string& path)
+string FileUtility::directory(const string& path)
 {
     size_t pos = path.find_last_of("/\\");
     return pos == string::npos ? "" : path.substr(0, pos);
@@ -349,7 +328,7 @@ string File::directory(const string& path)
  *        Default value is <code>false</code>.
  * @return returns full path.
  */
-string File::path(const string& directory, const string& relativePath)
+string FileUtility::path(const string &directory, const string &relativePath)
 {
     string dir(directory);
     if(!dir.empty() && (dir[dir.size() - 1] == '/' || dir[dir.size() - 1] == '\\')) {
@@ -368,7 +347,7 @@ string File::path(const string& directory, const string& relativePath)
 /**
  * @return returns temporary filename.
  */
-string File::tempFileName()
+string FileUtility::tempFileName()
 {
 #ifdef _WIN32
     // requires TMP environment variable to be set
@@ -391,11 +370,10 @@ string File::tempFileName()
      close(fd);
 #endif
     string path = decodeName(fileName);
-    // tempFiles.push(path);
     return path;
 }
 
-int File::readFileInfo(const std::string &strFilePath, std::vector<char> &vecFileBuf)
+int FileUtility::readFileInfo(const std::string &strFilePath, std::string &fileBuf)
 {
     std::ifstream inFile(strFilePath.c_str(), std::ios::in | std::ios::binary);
     if (!inFile) {
@@ -407,9 +385,9 @@ int File::readFileInfo(const std::string &strFilePath, std::vector<char> &vecFil
     size_t fileSize = inFile.tellg();
     inFile.seekg(0, std::ios::beg);
 
-    vecFileBuf.clear();
-    vecFileBuf.resize(fileSize);
-    if (!inFile.read(&vecFileBuf[0], fileSize)) {
+    fileBuf.clear();
+    fileBuf.resize(fileSize);
+    if (!inFile.read(&fileBuf[0], fileSize)) {
         LOG_ERROR("Failed to read file: {}, size: {}.", strFilePath, fileSize);
         inFile.close();
         return -1;
@@ -419,7 +397,7 @@ int File::readFileInfo(const std::string &strFilePath, std::vector<char> &vecFil
     return 0;
 }
 
-int File::writeFileInfo(const std::string &strFilePath, const char *fileBuf, size_t fileLen)
+int FileUtility::writeFileInfo(const std::string &strFilePath, const char *fileBuf, size_t fileLen)
 {
     std::ofstream outfile(strFilePath.c_str(), std::ios::out | std::ios::binary);
     if (!outfile) {
@@ -437,15 +415,15 @@ int File::writeFileInfo(const std::string &strFilePath, const char *fileBuf, siz
     return 0;
 }
 
-int File::copyFile(const char *srcFilePath, const char *dstFilePath)
+int FileUtility::copyFile(const char *srcFilePath, const char *dstFilePath)
 {
-    std::vector<char> vecFileBuf;
-    if (0 != ReadFileInfo(srcFilePath, vecFileBuf)) {
+    std::string fileBuf;
+    if (0 != readFileInfo(srcFilePath, fileBuf)) {
         LOG_ERROR("Failed to read file: {}.", srcFilePath);
         return -1;
     }
 
-    if (0 != WriteFileInfo(dstFilePath, &vecFileBuf[0], vecFileBuf.size())) {
+    if (0 != writeFileInfo(dstFilePath, &fileBuf[0], fileBuf.size())) {
         LOG_ERROR("Failed to write file: {}.", dstFilePath);
         return -1;
     }
@@ -460,7 +438,7 @@ int File::copyFile(const char *srcFilePath, const char *dstFilePath)
  * @param mode directory access rights, optional parameter, default value 0700 (owner: rwx, group: ---, others: ---)
  * @throws IOException exception is thrown if the directory creation failed.
  */
-int File::createDirectory(const string& path)
+int FileUtility::createDirectory(const string &path)
 {
     if(path.empty())
     {
@@ -518,7 +496,7 @@ int File::createDirectory(const string& path)
  *
  * @return returns true if the path is relative
  */
-bool File::isRelative(const string &path)
+bool FileUtility::isRelative(const string &path)
 {
     f_string _path = encodeName(path);
     if(_path.empty()) return true;
@@ -542,7 +520,7 @@ bool File::isRelative(const string &path)
  * @param recursion directory
  * @throws IOException throws exception if the directory listing failed.
  */
-int File::listFiles(const string& directory, std::vector<std::string> &files, bool bRecurison)
+int FileUtility::listFiles(const string& directory, std::vector<std::string> &files, bool bRecurison)
 {
 #ifdef _POSIX_VERSION
     string _directory = encodeName(directory);
@@ -626,33 +604,19 @@ int File::listFiles(const string& directory, std::vector<std::string> &files, bo
  * @return full file path in the format "file:///fullpath" in URI encoding.
  */
 
-string File::fullPathUrl(const string &path)
+string FileUtility::fullPathUrl(const string &path)
 {
     string result = path;
     // Under windows replace the path delimiters
 #ifdef _WIN32
     replace(result.begin(), result.end(), '\\', '/');
-    return "file:///" + File::toUri(result);
+    return "file:///" + FileUtility::toUri(result);
 #else
-    return "file://" + File::toUri(result);
+    return "file://" + FileUtility::toUri(result);
 #endif
 }
 
-/**
- * Tries to delete all temporary files and directories whose names were handled out with tempFileName, tempDirectory and createTempDirectory.
- * The deletion of directories is recursive.
- */
-/*void File::deleteTempFiles()
-{
-    while(!tempFiles.empty())
-    {
-        if(!removeFile(tempFiles.top()))
-            LOG_WARN( "Tried to remove the temporary file or directory '%s', but failed.", tempFiles.top().c_str() );
-        tempFiles.pop();
-    }
-}*/
-
-bool File::removeFile(const string &path)
+bool FileUtility::removeFile(const string &path)
 {
 #ifdef _WIN32
     return _wremove(encodeName(path).c_str()) == 0;
@@ -671,7 +635,7 @@ bool File::removeFile(const string &path)
  * @param str_in the string to be converted
  * @return the string converted to the URI format
  */
-string File::toUri(const string &path)
+string FileUtility::toUri(const string &path)
 {
     static string legal_chars = "-_.!~*'();/?:@&=+$,";
     ostringstream dst;
@@ -702,10 +666,9 @@ string File::toUri(const string &path)
  * @param str_in the string to be converted
  * @return the string converted to the URI format
  */
-string File::toUriPath(const string &path)
+string FileUtility::toUriPath(const string &path)
 {
     static string unreserved = "-._~/";
-    //static string sub-delims = "!$&'()*+,;=";
     ostringstream dst;
     for(string::const_iterator i = path.begin(); i != path.end(); ++i)
     {
@@ -718,7 +681,7 @@ string File::toUriPath(const string &path)
     return dst.str();
 }
 
-string File::fromUriPath(const string &path)
+string FileUtility::fromUriPath(const string &path)
 {
     string ret;
     char data[] = "0x00";
@@ -737,7 +700,7 @@ string File::fromUriPath(const string &path)
     return ret;
 }
 
-vector<unsigned char> File::hexToBin(const string &in)
+vector<unsigned char> FileUtility::hexToBin(const string &in)
 {
     vector<unsigned char> out;
     char data[] = "00";

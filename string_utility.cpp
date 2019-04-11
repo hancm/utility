@@ -19,8 +19,8 @@ namespace StringUtil
  * @note
  */
 void StringSplit(const std::string &strSplit,
-                             const std::string &strDelim,
-                             std::vector<std::string> &vecString)
+                 const std::string &strDelim,
+                 std::vector<std::string> &vecString)
 {
     if (strSplit.empty() || strDelim.empty())
     {
@@ -107,7 +107,7 @@ static void char_to_bitstr(unsigned char c, std::string &bitString)
     }
 }
 
-void string_to_bitstr(const std::string &charString, std::string &bitString)
+void StringToBitString(const std::string &charString, std::string &bitString)
 {
     for (size_t i = 0; i < charString.size(); ++i)
     {
@@ -129,11 +129,12 @@ void output_bit(int bit,
     }
 }
 
-int bitstr_to_string(const std::string &bitString, std::string &charString)
+int BitStringToString(const std::string &bitString, std::string &charString)
 {
     charString.clear();
     if (0 != bitString.size() % 8)
     {
+        LOG_ERROR("Bit string size must be 8*n.");
         return -1;
     }
 
