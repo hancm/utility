@@ -4,7 +4,10 @@
 #include <vector>
 #include <string>
 
-namespace HttpClientUtility
+namespace util
+{
+
+namespace http_client
 {
 
 #define CONTENT_TYPE_X_WWW_FORM_URLENCODED      "Content-Type: application/x-www-form-urlencoded"
@@ -25,5 +28,7 @@ int HttpRequestWithPostAndHeader(const char *url, const std::vector<std::string>
                                  const char *postFiledData, int postFiledDataLen,
                                  std::string &responseData);
 
-} /* namespace HttpClient */
+} /* namespace http_client */
+
+} /* namespace util */
 #endif /* __HTTP_CLIENT_UTILITY__ */

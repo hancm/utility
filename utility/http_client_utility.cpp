@@ -8,7 +8,10 @@
 #define INOUT
 #define OUT
 
-namespace HttpClientUtility
+namespace util
+{
+
+namespace http_client
 {
 
 class CurlInitUtil
@@ -145,4 +148,6 @@ int HttpRequestWithPostAndHeader(const char *url, const std::vector<std::string>
     return 0;
 }
 
-} /* namespace HttpClient */
+} /* namespace http_client */
+
+} /* namespace util */
