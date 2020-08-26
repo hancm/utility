@@ -60,13 +60,12 @@ bool RedisClient::connect(const std::vector<RedisHost> &hosts)
         redisNodeList[i].passwd = hosts[i].passwd.c_str();
         redisNodeList[i].poolsize = 8;
         redisNodeList[i].timeout = 5;
-        redisNodeList[i].role = 0;
-        LOG_DEBUG("Redis host:[{}]", hosts[i].host + ":" + hosts[i].port + ":" + hosts[i].passwd);
+        redisNodeList[i].role = MASTER;
+        LOG_DEBUG("Redis host:[{}]", std::string("host=") + hosts[i].host + ", port=" + hosts[i].port + ", passwd=" + hosts[i].passwd + ", database=" + hosts[i].database);
     }
 
     xRedis.Init(CACHE_TYPE_MAX);
-    bool bRet = xRedis.ConnectRedisCache(redisNodeList, i, CACHE_TYPE_1);
-    if(true != bRet)
+    if(!xRedis.ConnectRedisCache(redisNodeList, i, CACHE_TYPE_1))
     {
         LOG_ERROR("Failed to connect redis.");
         isConnected = false;

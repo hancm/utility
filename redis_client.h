@@ -10,6 +10,7 @@ struct RedisHost
 {
     std::string host;
     std::string port;
+    std::string database;
     std::string user;
     std::string passwd;
 };
