@@ -1,19 +1,13 @@
-SOCI_LIB_DIR=./soci
-PCAPPLUSPLUS_LIB_DIR=./PcapPlusPlus
-
-all: build_dir third
+BUILD_LIB_DIRS := openssl soci podofo mupdf civetweb tacopie cpp_redis occi
 
 third:
-	cd ${SOCI_LIB_DIR} && make && make install
-	cd ${PCAPPLUSPLUS_LIB_DIR} && make && make install
+	@$(foreach lib, $(BUILD_LIB_DIRS), \
+		cd (lib) && make && make install; \
+	)
 
 clean:
-	cd ${SOCI_LIB_DIR} && make clean
-	cd ${PCAPPLUSPLUS_LIB_DIR} && make clean
+	@$(foreach lib, $(BUILD_LIB_DIRS), \
+		cd (lib) && make clean; \
+	)
 
-build_dir:
-	mkdir -p ../build/include
-	mkdir -p ../build/lib
-	mkdir -p ../build/config
-
-.PHONY: all third clean build_dir
+.PHONY: third clean
