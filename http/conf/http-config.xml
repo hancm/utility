@@ -1,0 +1,39 @@
+<httpConf>
+    <!-- 日志目录 -->
+    <logDir>/var/log/http-log/</logDir>
+    <!-- http配置信息 -->
+    <http>
+        <document_root>.</document_root>
+        <listening_ports>8081</listening_ports>
+        <num_threads>30</num_threads>
+        <access_log_file>http_access.log</access_log_file>
+        <error_log_file>http_error.log</error_log_file>
+        <request_timeout_ms>30000</request_timeout_ms>
+    </http>
+    <httpStatus>1</httpStatus>
+    <!-- 数据库配置 -->
+    <database>
+        <!-- 数据库类型: mysql/oracle -->
+        <dbtype>mysql</dbtype>
+        <host>192.168.0.247</host>
+        <port>3306</port>
+        <dbname>seal_dev</dbname>
+        <user>sealdev</user>
+        <password>sealdev</password>
+    </database>
+    <!-- redis配置 -->
+    <!-- 是否使用redis 1:使用 0:不使用 -->
+    <isOnRedis>1</isOnRedis>
+    <redis>
+        <!-- 哨兵模式下主节点名称，单redis下必须为空 -->
+        <master_name></master_name>
+        <!-- redis地址或者哨兵节点地址列表(ip1:port1,ip2:port2) -->
+        <nodes>192.168.0.198:6379</nodes>
+        <!-- redis库: 0..15 -->
+        <database>0</database>
+        <user>redis_user</user>
+        <password>redis_password</password>
+        <!-- redis数据生存期2小时(单位秒) -->
+        <dataLifeTime>7200</dataLifeTime>
+    </redis>
+</httpConf>
