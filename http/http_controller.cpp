@@ -73,6 +73,11 @@ bool HelloHandler::handlePost(CivetServer *server, struct mg_connection *conn)
 {
     int nRet = 0;
 
+    // http请求URL
+    const mg_request_info *requestInfo = mg_get_request_info(conn);
+    std::string requestUrl = requestInfo->request_uri;
+    LOG_DEBUG("Request URL: [{}]", requestUrl);
+
 #if 0
     // 获取POST BODY数据
     std::string postData = server->getPostData(conn);
@@ -95,7 +100,7 @@ bool HelloHandler::handlePost(CivetServer *server, struct mg_connection *conn)
         return true;
     }
 
-    sendHttpResponse(conn, std::map<std::string, std::string>{{"key", echo}});
+    sendHttpResponse(conn, std::map<std::string, std::string>{{"echo", echo}});
     return true;
 }
 
