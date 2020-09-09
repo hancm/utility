@@ -33,7 +33,7 @@ static void sendHttpTextChunk(struct mg_connection *conn, const std::string &mes
 static void sendHTTPError(struct mg_connection *conn, int errorNum)
 {
     std::string errMessage("未知的错误");
-    if (HTTP_ERROR_START_VALUE <= errorNum && HTTP_ERROR_MAX_VALUE > errorNum) {
+    if (HTTP_ERROR_START_VALUE < errorNum && HTTP_ERROR_MAX_VALUE > errorNum) {
         // http错误码
         auto iter = g_httpErrnoStringMap.find(errorNum);
         if (g_httpErrnoStringMap.end() != iter) {
@@ -50,10 +50,18 @@ static void sendHTTPError(struct mg_connection *conn, int errorNum)
     return;
 }
 
+static void sendHttpSucceed()
+{
+    char response[200] = {0};
+    snprintf(response, sizeof(response), HTTP_ERROR_FORMAT, HTTP_ERROR_START_VALUE, "Succeed");
+    sendHttpTextChunk(conn, response);
+    return;
+}
+
 static void sendHttpResponse(struct mg_connection *conn, const std::string &dataJson)
 {
     std::string responseJson(dataJson.size() + 100, '\0');
-    snprintf(&responseJson[0], responseJson.size(), HTTP_POST_RETURN_FORMAT, 0, "Succeed", dataJson.c_str());
+    snprintf(&responseJson[0], responseJson.size(), HTTP_POST_RETURN_FORMAT, HTTP_ERROR_START_VALUE, "Succeed", dataJson.c_str());
     responseJson.resize(strlen(&responseJson[0]));
     responseJson.shrink_to_fit();
 
