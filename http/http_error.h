@@ -12,6 +12,7 @@ enum HTTP_ERRNO_ENUM
 
     // 参数解析
     ERR_PARAM_INVALID,
+    ERR_PARAM_INVALID_URL,
 
     // base64参数解析错误
     ERR_BASE64_PARAM_INVALID,
@@ -36,6 +37,7 @@ const std::map<int, std::string> g_httpErrnoStringMap =
 
     // 参数解析
     {ERR_PARAM_INVALID, "无效的参数"},
+    {ERR_PARAM_INVALID_URL, "无效的URL"},
 
     // base64参数解析错误
     {ERR_BASE64_PARAM_INVALID, "无效的BASE64参数"},
