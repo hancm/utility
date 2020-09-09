@@ -5,7 +5,8 @@ TARGET = http
 CXX = g++
 CXXFLAGS = -std=c++11 -g -Wall -O2 -pthread -flto #-DNDEBUG
 INCLUDE = -I./ -I./utility \
-		  -I../utility -I../build/include/ -I../build/include/civetweb
+		  -I../utility \
+		  -I../build/ -I../build/include/ -I../build/include/civetweb
 LDFLAGS = -L./ -Wl,-rpath=./ \
 		  -L./lib -Wl,-rpath=./lib \
 		  -L../build -Wl,-rpath=../build/ \

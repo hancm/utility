@@ -50,7 +50,7 @@ static void sendHTTPError(struct mg_connection *conn, int errorNum)
     return;
 }
 
-static void sendHttpSucceed()
+static void sendHttpSucceed(struct mg_connection *conn)
 {
     char response[200] = {0};
     snprintf(response, sizeof(response), HTTP_ERROR_FORMAT, HTTP_ERROR_START_VALUE, "Succeed");
