@@ -97,6 +97,8 @@ int main(int argc, char *argv[])
      */
     nRet = env::InitLog(confPath);
     if (0 != nRet) {
+        LOG_ERROR("Failed to init log.");
+        return nRet;
     }
 
     /**
