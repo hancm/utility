@@ -6,6 +6,21 @@
 // LOG_DEBUG(); LOG_INFO(); LOG_ERROR; 打印日志
 // 编译release、链接时优化选项增加速度：-Wall -pthread -O3 -flto -DNDEBUG
 
+// 0：rotating日志
+// 1：rotating日志 + 增加控制台日志
+#ifndef _MYLOG_SINK_
+#define _MYLOG_SINK_    1
+#endif
+
+// 0: TRACE
+// 1: DEBUG
+// 2: INFO
+// 3: WARN
+// 4: ERROR
+#ifndef _MYLOG_LEVEL_
+#define _MYLOG_LEVEL_   0
+#endif
+
 //
 // SPDLOG宏定义必须在spdlog.h之前定义才有效
 //
@@ -25,23 +40,27 @@
 namespace util
 {
 
-// 0：rotating日志
-// 1：rotating日志 + 增加控制台日志
-#define _MYLOG_SINK_    1
-
-// 0: TRACE级别
-// 1：ERROR级别
-#define _MYLOG_LEVEL_   0
-
 #define MY_LOG_NAME ("__MY_LOG_NAME__")
 
 // spdlog封装
 class MyLog
 {
 public:
+    MyLog() {};
+
     MyLog(const std::string &file_name, const char *logName = MY_LOG_NAME) noexcept
     {
-        init(file_name, logName);
+        _init(file_name, logName);
+    }
+
+    static inline void init(const std::string &file_name, const char *logName = MY_LOG_NAME) noexcept
+    {
+        _init(file_name, logName);
+    }
+
+    static inline void destory() noexcept
+    {
+        _destroy();
     }
 
     template <typename... Args>
@@ -53,7 +72,7 @@ public:
                 logger->trace(format, args...);
             }
         } catch (...) {
-            destroy();
+            _destroy();
         }
     }
 
@@ -66,7 +85,7 @@ public:
                 logger->debug(format, args...);
             }
         } catch (...) {
-            destroy();
+            _destroy();
         }
     }
 
@@ -79,7 +98,7 @@ public:
                 logger->info(format, args...);
             }
         } catch (...) {
-            destroy();
+            _destroy();
         }
     }
 
@@ -92,7 +111,7 @@ public:
                 logger->warn(format, args...);
             }
         } catch (...) {
-            destroy();
+            _destroy();
         }
     }
 
@@ -105,7 +124,7 @@ public:
                 logger->error(format, args...);
             }
         } catch (...) {
-            destroy();
+            _destroy();
         }
     }
 
@@ -118,7 +137,7 @@ public:
                 logger->critical(format, args...);
             }
         } catch (...) {
-            destroy();
+            _destroy();
         }
     }
 
@@ -127,12 +146,15 @@ private:
     MyLog& operator=(const MyLog&) = delete;
 
 private:
-    static inline void init(const std::string &file_name, const char *logName) noexcept
+    static inline void _init(const std::string &file_name, const char *logName) noexcept
     {
         try {
             if (file_name.empty() || getLogger(logName)) {
                 return;
             }
+
+            // 设置异步日志模式
+//          spdlog::set_async_mode(4096);
 
             // 添加目的端
             std::vector<spdlog::sink_ptr> sinks;
@@ -154,6 +176,12 @@ private:
 #if (0 == _MYLOG_LEVEL_)
             logger->set_level(spdlog::level::trace);
 #elif (1 == _MYLOG_LEVEL_)
+            logger->set_level(spdlog::level::debug);
+#elif (2 == _MYLOG_LEVEL_)
+            logger->set_level(spdlog::level::info);
+#elif (3 == _MYLOG_LEVEL_)
+            logger->set_level(spdlog::level::warn);
+#elif (4 == _MYLOG_LEVEL_)
             logger->set_level(spdlog::level::err);
 #endif
 
@@ -163,11 +191,11 @@ private:
             //设置当出发debug或更严重的错误时立刻刷新日志到disk
             logger->flush_on(spdlog::level::debug);
         } catch (...) {
-            destroy();
+            _destroy();
         }
     };
 
-    static inline void destroy() noexcept
+    static inline void _destroy() noexcept
     {
         try {
             // Release all spdlog resources, and drop all loggers in the registry.
