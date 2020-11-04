@@ -227,7 +227,7 @@ private:
 
 // 格式化
 #ifndef FORMATTED
-#define FORMATTED(format)    "[{:s}:{:d}]<{:s}> - " #format, __FILE__, __LINE__, __FUNCTION__
+#define FORMATTED(format)    "[{:s}:{:d}]<{:s}> - " #format, __FILENAME__, __LINE__, __FUNCTION__
 #endif
 
 #define MYLOG_TRACE(__MYLOG_NAME__, format, ...)      (util::MyLog::trace(__MYLOG_NAME__, FORMATTED(format), ##__VA_ARGS__))
